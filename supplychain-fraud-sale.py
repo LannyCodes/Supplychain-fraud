@@ -462,6 +462,7 @@ xgr = xgb.XGBClassifier(learning_rate=0.1,
                         subsample=0.8,             # 随机选择80%样本建立决策树
                         colsample_bytree=0.8,      # 随机选择80%特征建立决策树
                         objective='multi:softmax', # 指定损失函数
+                        eval_metric='mlogloss',    # 显式指定评估指标，避免警告
                         random_state=27,           # 随机数
                         tree_method='gpu_hist',    # 使用GPU加速
                         predictor='gpu_predictor'  # 使用GPU进行预测
@@ -647,6 +648,16 @@ except Exception as e:
         lgb_model_cpu.fit(X_train_resampled, y_train_resampled)
         y_pred_lgb = lgb_model_cpu.predict(X_test)
         
+        # 打印特征重要性
+        print("\n特征重要性 (LightGBM CPU版本):")
+        feature_importance = lgb_model_cpu.feature_importances_
+        feature_names = X_train.columns
+        feature_importance_df = pd.DataFrame({
+            'feature': feature_names,
+            'importance': feature_importance
+        }).sort_values(by='importance', ascending=False)
+        print(feature_importance_df.head(20))
+        
         # 转换为二分类标签
         y_test_2_lgb = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
         y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
@@ -682,13 +693,13 @@ if PYTORCH_AVAILABLE:
     
     try:
         # 将数据转换为二分类问题
-        y_train_binary = y_train.apply(lambda x: 1 if x == 8 else 0).values
+        y_train_binary = y_train_resampled.apply(lambda x: 1 if x == 8 else 0).values  # 使用SMOTE过采样后的训练数据
         y_test_binary = y_test.apply(lambda x: 1 if x == 8 else 0).values
         
         # 数据标准化
         from sklearn.preprocessing import StandardScaler
         scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train_resampled)
+        X_train_scaled = scaler.fit_transform(X_train_resampled)  # 使用SMOTE过采样后的训练数据
         X_test_scaled = scaler.transform(X_test)
         
         # 调用PyTorch二分类LR模型
