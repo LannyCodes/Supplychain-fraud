@@ -94,6 +94,7 @@ import xgboost as xgb
 ## 参数搜索和评价的
 from sklearn.model_selection import GridSearchCV,cross_val_score,StratifiedKFold,train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, accuracy_score, classification_report
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 from sklearn.pipeline import Pipeline
 
 #==================================================
