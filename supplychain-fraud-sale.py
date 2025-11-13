@@ -672,7 +672,7 @@ xgr = xgb.XGBClassifier(learning_rate=0.1,
                         min_child_weight = 1,      # 叶子节点最小权重
                         gamma=0.,                  # 惩罚项中叶子结点个数前的参数
                         subsample=0.8,             # 随机选择80%样本建立决策树
-                        colsample_btree=0.8,       # 随机选择80%特征建立决策树
+                        colsample_bytree=0.8,      # 随机选择80%特征建立决策树
                         objective='multi:softmax', # 指定损失函数
                         random_state=27            # 随机数
                         )
