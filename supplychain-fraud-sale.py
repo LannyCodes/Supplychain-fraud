@@ -342,23 +342,6 @@ astype_features = [
 for column in astype_features:
     data[column] = data[column].astype('category')
 
-# # ###随机采样，测试程序用，设置一个小样本的数据集，快速预览模型
-# np.random.seed(10)
-# 
-# #按照百分比抽样，不放回
-# data2_sample = data2.sample(frac=0.01) #抽取20%的数据
-# display(data2_sample.shape)
-# 
-# # 样本数据
-# X = data2_sample[feature_cols]
-# y = data2_sample['Order Status']
-# 
-# 全量特征
-# AC 0.315976069133614
-# CPU times: user 3min 24s, sys: 1min 20s, total: 4min 44s
-# Wall time: 1min 12s
-
-
 
 # 全量数据
 X = data2[feature_cols]
@@ -385,42 +368,9 @@ print(f"\n原始训练集样本数: {len(y_train)}")
 print(f"过采样后训练集样本数: {len(y_train_resampled)}")
 print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
 
-#==================================================
-# Code cell 27
-#==================================================
-
-
-#==================================================
-# Code cell 28
-#==================================================
-
-
-# ==================================================
-# Code cell 29
-# ==================================================
-
-#==================================================
-# Code cell 29
-#==================================================
-
-
-#==================================================
-# Code cell 30
-#==================================================
-
-
-#from sklearn.model_selection import cross_val_score
-# RandomForestClassifier
-
-
-#==================================================
-# Code cell 31
-#==================================================
-
-
 
 # RandomForestClassifier
-
+print('\n========== RandomForestClassifier 模型评估 ==========')
 from sklearn.ensemble import RandomForestClassifier
 # 添加 class_weight='balanced' 处理不平衡数据
 clf = RandomForestClassifier(max_depth=7, random_state=2021, class_weight='balanced')
@@ -606,75 +556,117 @@ print('\n========== LightGBM 模型评估 ==========')
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
     num_leaves=31,
-    max_depth=-1,
+    max_depth=6,  # 限制最大深度，避免过拟合
     learning_rate=0.1,
-    n_estimators=1000,
+    n_estimators=100,  # 减少树的数量
     random_state=27,
     class_weight='balanced',
-    device='gpu'  # 添加GPU支持
+    device='gpu'  # 在Kaggle上启用GPU支持
 )
 
-lgb_model.fit(X_train_resampled, y_train_resampled)
-y_pred_lgb = lgb_model.predict(X_test)
-
-# 打印特征重要性
-print("\n特征重要性 (LightGBM):")
-feature_importance = lgb_model.feature_importances_
-feature_names = X_train.columns
-feature_importance_df = pd.DataFrame({
-    'feature': feature_names,
-    'importance': feature_importance
-}).sort_values(by='importance', ascending=False)
-print(feature_importance_df.head(20))
-
-# 转换为二分类标签
-y_test_2_lgb = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
-y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
-
-# 混淆矩阵
-m_lgb = confusion_matrix(y_test_2_lgb, y_pred_2_lgb)
-print('\n混淆矩阵：')
-print(m_lgb)
-
-# 准确率
-print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
-
-# 精确率、召回率、F1分数（针对欺诈类别）
-print(f"精确率 (Precision): {precision_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
-print(f"召回率 (Recall): {recall_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
-print(f"F1分数 (F1-Score): {f1_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
-
-# 分类报告
-print('\n分类报告：')
-print(classification_report(y_test_2_lgb, y_pred_2_lgb, target_names=['正常订单', '欺诈订单']))
-
-# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+# 添加异常处理来捕获训练过程中的错误
 try:
-    # 获取预测概率
-    y_proba_fraud_lgb = None
+    lgb_model.fit(X_train_resampled, y_train_resampled)
+    y_pred_lgb = lgb_model.predict(X_test)
     
-    # 针对不同模型获取欺诈类别的概率
-    if hasattr(lgb_model, "predict_proba"):
-        y_proba_lgb = lgb_model.predict_proba(X_test)
-        # 对于多分类问题，我们需要转换为二分类概率
-        # 获取欺诈类别（标签8）的概率
-        if hasattr(lgb_model, "classes_"):
-            fraud_class_index_lgb = list(lgb_model.classes_).index(8) if 8 in lgb_model.classes_ else -1
-            if fraud_class_index_lgb >= 0:
-                y_proba_fraud_lgb = y_proba_lgb[:, fraud_class_index_lgb]
+    # 打印特征重要性
+    print("\n特征重要性 (LightGBM):")
+    feature_importance = lgb_model.feature_importances_
+    feature_names = X_train.columns
+    feature_importance_df = pd.DataFrame({
+        'feature': feature_names,
+        'importance': feature_importance
+    }).sort_values(by='importance', ascending=False)
+    print(feature_importance_df.head(20))
     
-    # 计算AUC指标
-    if y_proba_fraud_lgb is not None:
-        y_test_binary_auc_lgb = y_test.apply(lambda x: 1 if x == 8 else 0)
-        auc_roc_lgb = roc_auc_score(y_test_binary_auc_lgb, y_proba_fraud_lgb)
-        auc_pr_lgb = average_precision_score(y_test_binary_auc_lgb, y_proba_fraud_lgb)
-        print(f"AUC-ROC: {auc_roc_lgb:.4f}")
-        print(f"AUC-PR: {auc_pr_lgb:.4f}")
-    else:
-        print("模型不支持预测概率或未找到欺诈类别")
+    # 转换为二分类标签
+    y_test_2_lgb = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
+    y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
+    
+    # 混淆矩阵
+    m_lgb = confusion_matrix(y_test_2_lgb, y_pred_2_lgb)
+    print('\n混淆矩阵：')
+    print(m_lgb)
+    
+    # 准确率
+    print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+    
+    # 精确率、召回率、F1分数（针对欺诈类别）
+    print(f"精确率 (Precision): {precision_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+    print(f"召回率 (Recall): {recall_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+    print(f"F1分数 (F1-Score): {f1_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+    
+    # 分类报告
+    print('\n分类报告：')
+    print(classification_report(y_test_2_lgb, y_pred_2_lgb, target_names=['正常订单', '欺诈订单']))
+    
+    # AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+    try:
+        # 获取预测概率
+        y_proba_fraud_lgb = None
         
+        # 针对不同模型获取欺诈类别的概率
+        if hasattr(lgb_model, "predict_proba"):
+            y_proba_lgb = lgb_model.predict_proba(X_test)
+            # 对于多分类问题，我们需要转换为二分类概率
+            # 获取欺诈类别（标签8）的概率
+            if hasattr(lgb_model, "classes_"):
+                fraud_class_index_lgb = list(lgb_model.classes_).index(8) if 8 in lgb_model.classes_ else -1
+                if fraud_class_index_lgb >= 0:
+                    y_proba_fraud_lgb = y_proba_lgb[:, fraud_class_index_lgb]
+        
+        # 计算AUC指标
+        if y_proba_fraud_lgb is not None:
+            y_test_binary_auc_lgb = y_test.apply(lambda x: 1 if x == 8 else 0)
+            auc_roc_lgb = roc_auc_score(y_test_binary_auc_lgb, y_proba_fraud_lgb)
+            auc_pr_lgb = average_precision_score(y_test_binary_auc_lgb, y_proba_fraud_lgb)
+            print(f"AUC-ROC: {auc_roc_lgb:.4f}")
+            print(f"AUC-PR: {auc_pr_lgb:.4f}")
+        else:
+            print("模型不支持预测概率或未找到欺诈类别")
+            
+    except Exception as e:
+        print(f"计算AUC指标时出错: {e}")
+
 except Exception as e:
-    print(f"计算AUC指标时出错: {e}")
+    print(f"LightGBM模型训练时出错: {e}")
+    print("可能的原因：数据质量问题、类别不平衡、特征质量等")
+    # 尝试使用CPU版本作为备选方案
+    try:
+        print("尝试使用CPU版本...")
+        lgb_model_cpu = lgb.LGBMClassifier(
+            boosting_type='gbdt',
+            num_leaves=31,
+            max_depth=6,
+            learning_rate=0.1,
+            n_estimators=100,
+            random_state=27,
+            class_weight='balanced'
+            # 不指定device参数，使用默认CPU
+        )
+        lgb_model_cpu.fit(X_train_resampled, y_train_resampled)
+        y_pred_lgb = lgb_model_cpu.predict(X_test)
+        
+        # 转换为二分类标签
+        y_test_2_lgb = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
+        y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
+        
+        # 混淆矩阵
+        m_lgb = confusion_matrix(y_test_2_lgb, y_pred_2_lgb)
+        print('\n混淆矩阵（CPU版本）：')
+        print(m_lgb)
+        
+        # 准确率
+        print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+        
+        # 精确率、召回率、F1分数（针对欺诈类别）
+        print(f"精确率 (Precision): {precision_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+        print(f"召回率 (Recall): {recall_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+        print(f"F1分数 (F1-Score): {f1_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+        
+        print("CPU版本运行成功")
+    except Exception as cpu_e:
+        print(f"CPU版本也失败: {cpu_e}")
 
 # 导入PyTorch逻辑回归模型
 try:
