@@ -1,2 +1,38 @@
 # macOS
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv
+venv/
+ENV/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# IDE files
+.idea/
+.vscode/
+
+# Other common ignores
+*.swp
+*.tmp
+*.temp
+node_modules/
+dist/
+build/
