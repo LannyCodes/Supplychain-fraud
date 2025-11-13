@@ -95,6 +95,7 @@ import xgboost as xgb
 from sklearn.model_selection import GridSearchCV,cross_val_score,StratifiedKFold,train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, accuracy_score, classification_report
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
+from sklearn.metrics import roc_auc_score, average_precision_score  # 添加AUC相关指标
 from sklearn.pipeline import Pipeline
 
 #==================================================
@@ -387,7 +388,7 @@ print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
 # Code cell 27
 #==================================================
 
-"""
+
 
 # GaussianNB
 from sklearn.naive_bayes import GaussianNB
@@ -397,6 +398,10 @@ gnb = GaussianNB()
 y_pred = gnb.fit(X_train_resampled, y_train_resampled).predict(X_test)
 print("Number of mislabeled points out of a total %d points : %d"
       % (X_test.shape[0], (y_test != y_pred).sum()))
+
+# 打印特征重要性说明（朴素贝叶斯不提供特征重要性）
+print("\n特征重要性 (GaussianNB):")
+print("朴素贝叶斯算法不直接提供特征重要性信息。")
 
 # 转换为二分类标签
 display( pd.Series(y_test).value_counts() )
@@ -424,6 +429,40 @@ print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2):.4f}")
 print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2):.4f}")
 print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
 
+# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+try:
+    # 获取预测概率
+    y_proba_fraud = None
+    
+    # 针对不同模型获取欺诈类别的概率
+    if hasattr(clf, "predict_proba"):
+        y_proba = clf.predict_proba(X_test)
+        # 对于多分类问题，我们需要转换为二分类概率
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(clf, "classes_"):
+            fraud_class_index = list(clf.classes_).index(8) if 8 in clf.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    elif clf.__class__.__name__ == "GaussianNB":
+        # 对于朴素贝叶斯模型
+        y_proba = gnb.predict_proba(X_test)
+        if hasattr(gnb, "classes_"):
+            fraud_class_index = list(gnb.classes_).index(8) if 8 in gnb.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    
+    # 计算AUC指标
+    if y_proba_fraud is not None:
+        auc_roc = roc_auc_score(y_test_2, y_proba_fraud)
+        auc_pr = average_precision_score(y_test_2, y_proba_fraud)
+        print(f"AUC-ROC: {auc_roc:.4f}")
+        print(f"AUC-PR: {auc_pr:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
 # 分类报告
 print('\n分类报告：')
 print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
@@ -447,6 +486,21 @@ clf.fit(X_train_resampled, y_train_resampled)
 # print(clf.named_steps['linearsvc'].intercept_)
 
 y_pred = clf.predict(X_test)
+
+# 打印特征重要性（LinearSVC的系数）
+print("\n特征重要性 (LinearSVC):")
+feature_names = X_train.columns
+# 获取LinearSVC的系数
+if hasattr(clf.named_steps['linearsvc'], 'coef_'):
+    svc_coefficients = clf.named_steps['linearsvc'].coef_
+    # 对于多分类问题，coef_是一个二维数组
+    # 我们计算每个特征的平均绝对系数值
+    mean_abs_coef_svc = np.mean(np.abs(svc_coefficients), axis=0)
+    feature_importance_df_svc = pd.DataFrame({
+        'feature': feature_names,
+        'importance': mean_abs_coef_svc
+    }).sort_values(by='importance', ascending=False)
+    print(feature_importance_df_svc.head(20))
 
 # 转换为二分类标签
 display( pd.Series(y_test).value_counts() )
@@ -474,6 +528,33 @@ print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2):.4f}")
 print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2):.4f}")
 print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
 
+# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+try:
+    # 获取预测概率
+    y_proba_fraud = None
+    
+    # 针对不同模型获取欺诈类别的概率
+    if hasattr(clf, "predict_proba"):
+        y_proba = clf.predict_proba(X_test)
+        # 对于多分类问题，我们需要转换为二分类概率
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(clf, "classes_"):
+            fraud_class_index = list(clf.classes_).index(8) if 8 in clf.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    
+    # 计算AUC指标
+    if y_proba_fraud is not None:
+        auc_roc = roc_auc_score(y_test_2, y_proba_fraud)
+        auc_pr = average_precision_score(y_test_2, y_proba_fraud)
+        print(f"AUC-ROC: {auc_roc:.4f}")
+        print(f"AUC-PR: {auc_pr:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
 # 分类报告
 print('\n分类报告：')
 print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
@@ -491,6 +572,10 @@ neigh = KNeighborsClassifier(n_neighbors=3)
 neigh.fit(X_train_resampled, y_train_resampled)
       
 y_pred = neigh.predict(X_test)
+
+# 打印特征重要性说明（KNN不提供特征重要性）
+print("\n特征重要性 (KNeighborsClassifier):")
+print("KNN算法不提供特征重要性信息，因为它基于距离度量进行预测。")
 
 # 转换为二分类标签
 display( pd.Series(y_test).value_counts() )
@@ -518,6 +603,39 @@ print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2):.4f}")
 print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2):.4f}")
 print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
 
+# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+try:
+    # 获取预测概率
+    y_proba_fraud = None
+    
+    # 针对不同模型获取欺诈类别的概率
+    if hasattr(clf, "predict_proba"):
+        y_proba = clf.predict_proba(X_test)
+        # 对于多分类问题，我们需要转换为二分类概率
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(clf, "classes_"):
+            fraud_class_index = list(clf.classes_).index(8) if 8 in clf.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    elif hasattr(neigh, "predict_proba") and clf.__class__.__name__ == "KNeighborsClassifier":
+        y_proba = neigh.predict_proba(X_test)
+        if hasattr(neigh, "classes_"):
+            fraud_class_index = list(neigh.classes_).index(8) if 8 in neigh.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    
+    # 计算AUC指标
+    if y_proba_fraud is not None:
+        auc_roc = roc_auc_score(y_test_2, y_proba_fraud)
+        auc_pr = average_precision_score(y_test_2, y_proba_fraud)
+        print(f"AUC-ROC: {auc_roc:.4f}")
+        print(f"AUC-PR: {auc_pr:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
 # 分类报告
 print('\n分类报告：')
 print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
@@ -536,6 +654,21 @@ clf = LinearDiscriminantAnalysis()
 clf.fit(X_train_resampled, y_train_resampled)
 
 y_pred = clf.predict(X_test)
+
+# 打印特征重要性（LDA的系数）
+print("\n特征重要性 (LinearDiscriminantAnalysis):")
+feature_names = X_train.columns
+# LDA的coef_属性包含每个类别的系数
+if hasattr(clf, 'coef_'):
+    lda_coefficients = clf.coef_
+    # 对于多分类问题，coef_是一个二维数组
+    # 我们计算每个特征的平均绝对系数值
+    mean_abs_coef = np.mean(np.abs(lda_coefficients), axis=0)
+    feature_importance_df_lda = pd.DataFrame({
+        'feature': feature_names,
+        'importance': mean_abs_coef
+    }).sort_values(by='importance', ascending=False)
+    print(feature_importance_df_lda.head(20))
 
 # 转换为二分类标签
 display( pd.Series(y_test).value_counts() )
@@ -563,6 +696,33 @@ print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2):.4f}")
 print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2):.4f}")
 print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
 
+# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+try:
+    # 获取预测概率
+    y_proba_fraud = None
+    
+    # 针对不同模型获取欺诈类别的概率
+    if hasattr(clf, "predict_proba"):
+        y_proba = clf.predict_proba(X_test)
+        # 对于多分类问题，我们需要转换为二分类概率
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(clf, "classes_"):
+            fraud_class_index = list(clf.classes_).index(8) if 8 in clf.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    
+    # 计算AUC指标
+    if y_proba_fraud is not None:
+        auc_roc = roc_auc_score(y_test_2, y_proba_fraud)
+        auc_pr = average_precision_score(y_test_2, y_proba_fraud)
+        print(f"AUC-ROC: {auc_roc:.4f}")
+        print(f"AUC-PR: {auc_pr:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
 # 分类报告
 print('\n分类报告：')
 print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
@@ -581,6 +741,16 @@ clf = DecisionTreeClassifier(random_state=2021, class_weight='balanced')
 
 clf.fit(X_train_resampled, y_train_resampled)
 y_pred = clf.predict(X_test)
+
+# 打印特征重要性
+print("\n特征重要性 (DecisionTree):")
+feature_importance_dt = clf.feature_importances_
+feature_names = X_train.columns
+feature_importance_df_dt = pd.DataFrame({
+    'feature': feature_names,
+    'importance': feature_importance_dt
+}).sort_values(by='importance', ascending=False)
+print(feature_importance_df_dt.head(20))
 
 # 转换为二分类标签
 display( pd.Series(y_test).value_counts() )
@@ -627,6 +797,16 @@ clf.fit(X_train_resampled, y_train_resampled)
 
 y_pred = clf.predict(X_test)
 
+# 打印特征重要性
+print("\n特征重要性 (RandomForest):")
+feature_importance_rf = clf.feature_importances_
+feature_names = X_train.columns
+feature_importance_df_rf = pd.DataFrame({
+    'feature': feature_names,
+    'importance': feature_importance_rf
+}).sort_values(by='importance', ascending=False)
+print(feature_importance_df_rf.head(20))
+
 # 转换为二分类标签
 display( pd.Series(y_test).value_counts() )
 y_test_2 = y_test.apply(lambda x : 1 if x ==8 else 0).copy()
@@ -651,6 +831,33 @@ print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2):.4f}")
 print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2):.4f}")
 print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
 
+# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+try:
+    # 获取预测概率
+    y_proba_fraud = None
+    
+    # 针对不同模型获取欺诈类别的概率
+    if hasattr(clf, "predict_proba"):
+        y_proba = clf.predict_proba(X_test)
+        # 对于多分类问题，我们需要转换为二分类概率
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(clf, "classes_"):
+            fraud_class_index = list(clf.classes_).index(8) if 8 in clf.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    
+    # 计算AUC指标
+    if y_proba_fraud is not None:
+        auc_roc = roc_auc_score(y_test_2, y_proba_fraud)
+        auc_pr = average_precision_score(y_test_2, y_proba_fraud)
+        print(f"AUC-ROC: {auc_roc:.4f}")
+        print(f"AUC-PR: {auc_pr:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
 # 分类报告
 print('\n分类报告：')
 print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
@@ -659,7 +866,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 # Code cell 33
 #==================================================
 
-"""
+
 
 print('\n========== XGBClassifier 模型评估 ==========')
 
@@ -682,6 +889,16 @@ xgr = xgb.XGBClassifier(learning_rate=0.1,
 # 使用 SMOTE 平衡后的数据训练
 xgr.fit(X_train_resampled, y_train_resampled)
 y_pred = xgr.predict(X_test)
+
+# 打印特征重要性
+print("\n特征重要性 (XGBoost):")
+feature_importance_xgb = xgr.feature_importances_
+feature_names = X_train.columns
+feature_importance_df_xgb = pd.DataFrame({
+    'feature': feature_names,
+    'importance': feature_importance_xgb
+}).sort_values(by='importance', ascending=False)
+print(feature_importance_df_xgb.head(20))
 
 ### plot feature importance
 fig,ax = plt.subplots(figsize=(15,15))
@@ -719,57 +936,184 @@ print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
 print('\n分类报告：')
 print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
 
+# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+try:
+    # 获取预测概率
+    y_proba_fraud = None
+    
+    # 针对不同模型获取欺诈类别的概率
+    if hasattr(xgr, "predict_proba"):
+        y_proba = xgr.predict_proba(X_test)
+        # 对于多分类问题，我们需要转换为二分类概率
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(xgr, "classes_"):
+            fraud_class_index = list(xgr.classes_).index(8) if 8 in xgr.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud = y_proba[:, fraud_class_index]
+    
+    # 计算AUC指标
+    if y_proba_fraud is not None:
+        y_test_binary_auc = y_test.apply(lambda x: 1 if x == 8 else 0)
+        auc_roc = roc_auc_score(y_test_binary_auc, y_proba_fraud)
+        auc_pr = average_precision_score(y_test_binary_auc, y_proba_fraud)
+        print(f"AUC-ROC: {auc_roc:.4f}")
+        print(f"AUC-PR: {auc_pr:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
 #==================================================
 # Code cell 34
 #==================================================
 
+print('\n========== LightGBM 模型评估 ==========')
 
-print('\n========== LogisticRegression 模型评估 ==========')
-# # 训练
-# LR = sklearn.linear_model.LinearRegression()  #报错
-# LR = sklearn.linear_model.LogisticRegression(multi_class="multinomial", solver="newton-cg", max_iter=1000)
+# LightGBM
+# 使用 SMOTE 平衡后的数据训练
+lgb_model = lgb.LGBMClassifier(
+    boosting_type='gbdt',
+    num_leaves=31,
+    max_depth=-1,
+    learning_rate=0.1,
+    n_estimators=1000,
+    random_state=27,
+    class_weight='balanced',
+    device='gpu'  # 添加GPU支持
+)
 
-# 多分类，添加 class_weight='balanced' 处理不平衡数据
-LR = sklearn.linear_model.LogisticRegression(multi_class="multinomial", solver="newton-cg", max_iter=1000, class_weight='balanced') 
+lgb_model.fit(X_train_resampled, y_train_resampled)
+y_pred_lgb = lgb_model.predict(X_test)
 
-reg = LR.fit(X_train_resampled, y_train_resampled)
-reg.score(X_train, y_train)
-reg.coef_
-reg.intercept_
-y_pred = reg.predict(X_test)
-
-print("LR")
-print(classification_report(y_test, y_pred))
-print("AC",accuracy_score(y_test, y_pred))
-
+# 打印特征重要性
+print("\n特征重要性 (LightGBM):")
+feature_importance = lgb_model.feature_importances_
+feature_names = X_train.columns
+feature_importance_df = pd.DataFrame({
+    'feature': feature_names,
+    'importance': feature_importance
+}).sort_values(by='importance', ascending=False)
+print(feature_importance_df.head(20))
 
 # 转换为二分类标签
-display( pd.Series(y_test).value_counts() )
-y_test_2 = y_test.apply(lambda x : 1 if x ==8 else 0).copy()
-y_test_2.value_counts()
-
-# # 转换为二分类标签
-display( pd.Series(y_pred).value_counts() )
-y_pred_2 = pd.Series(y_pred).apply(lambda x : 1 if x ==8 else 0).copy()
-pd.Series(y_pred_2).value_counts()
+y_test_2_lgb = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
+y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
 
 # 混淆矩阵
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, classification_report
-m = confusion_matrix(y_test_2, y_pred_2)
+m_lgb = confusion_matrix(y_test_2_lgb, y_pred_2_lgb)
 print('\n混淆矩阵：')
-print(m)
+print(m_lgb)
 
 # 准确率
-print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2, y_pred_2):.4f}")
+print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
 
 # 精确率、召回率、F1分数（针对欺诈类别）
-print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2):.4f}")
-print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2):.4f}")
-print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
+print(f"精确率 (Precision): {precision_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+print(f"召回率 (Recall): {recall_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
+print(f"F1分数 (F1-Score): {f1_score(y_test_2_lgb, y_pred_2_lgb):.4f}")
 
 # 分类报告
 print('\n分类报告：')
-print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
+print(classification_report(y_test_2_lgb, y_pred_2_lgb, target_names=['正常订单', '欺诈订单']))
+
+# AUC-PR和AUC-ROC指标（对不平衡数据更敏感）
+try:
+    # 获取预测概率
+    y_proba_fraud_lgb = None
+    
+    # 针对不同模型获取欺诈类别的概率
+    if hasattr(lgb_model, "predict_proba"):
+        y_proba_lgb = lgb_model.predict_proba(X_test)
+        # 对于多分类问题，我们需要转换为二分类概率
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(lgb_model, "classes_"):
+            fraud_class_index_lgb = list(lgb_model.classes_).index(8) if 8 in lgb_model.classes_ else -1
+            if fraud_class_index_lgb >= 0:
+                y_proba_fraud_lgb = y_proba_lgb[:, fraud_class_index_lgb]
+    
+    # 计算AUC指标
+    if y_proba_fraud_lgb is not None:
+        y_test_binary_auc_lgb = y_test.apply(lambda x: 1 if x == 8 else 0)
+        auc_roc_lgb = roc_auc_score(y_test_binary_auc_lgb, y_proba_fraud_lgb)
+        auc_pr_lgb = average_precision_score(y_test_binary_auc_lgb, y_proba_fraud_lgb)
+        print(f"AUC-ROC: {auc_roc_lgb:.4f}")
+        print(f"AUC-PR: {auc_pr_lgb:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
+# 导入PyTorch逻辑回归模型
+try:
+    from logistic_regression_pytorch import train_binary_logistic_regression_pytorch
+    PYTORCH_AVAILABLE = True
+except ImportError:
+    PYTORCH_AVAILABLE = False
+    print("无法导入PyTorch逻辑回归模型，请确保logistic_regression_pytorch.py文件在同一目录下")
+
+# PyTorch Binary Logistic Regression
+if PYTORCH_AVAILABLE:
+    print('\n========== PyTorch Binary Logistic Regression 模型评估 ==========')
+    
+    try:
+        # 将数据转换为二分类问题
+        y_train_binary = y_train.apply(lambda x: 1 if x == 8 else 0).values
+        y_test_binary = y_test.apply(lambda x: 1 if x == 8 else 0).values
+        
+        # 数据标准化
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train_resampled)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # 调用PyTorch二分类LR模型
+        model, predictions, probabilities = train_binary_logistic_regression_pytorch(
+            X_train_scaled, y_train_binary, X_test_scaled, y_test_binary, 
+            num_epochs=1000, learning_rate=0.01
+        )
+        
+        # 打印特征重要性（PyTorch逻辑回归的权重）
+        print("\n特征重要性 (PyTorch Logistic Regression):")
+        feature_names = X_train.columns
+        # 获取模型的权重
+        if hasattr(model, 'linear'):
+            weights = model.linear.weight.data.cpu().numpy().flatten()
+            feature_importance_df_pytorch = pd.DataFrame({
+                'feature': feature_names,
+                'importance': np.abs(weights)  # 使用权重的绝对值作为重要性
+            }).sort_values(by='importance', ascending=False)
+            print(feature_importance_df_pytorch.head(20))
+        
+        # 计算评估指标
+        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+        accuracy = accuracy_score(y_test_binary, predictions)
+        precision = precision_score(y_test_binary, predictions)
+        recall = recall_score(y_test_binary, predictions)
+        f1 = f1_score(y_test_binary, predictions)
+        
+        print('\n混淆矩阵：')
+        print(confusion_matrix(y_test_binary, predictions))
+        print(f"\n准确率 (Accuracy): {accuracy:.4f}")
+        print(f"精确率 (Precision): {precision:.4f}")
+        print(f"召回率 (Recall): {recall:.4f}")
+        print(f"F1分数 (F1-Score): {f1:.4f}")
+        
+        # 计算AUC-PR指标
+        if probabilities is not None:
+            auc_pr = average_precision_score(y_test_binary, probabilities)
+            print(f"AUC-PR: {auc_pr:.4f}")
+            
+        # 分类报告
+        print('\n分类报告：')
+        print(classification_report(y_test_binary, predictions, target_names=['正常订单', '欺诈订单']))
+        
+    except Exception as e:
+        print(f"PyTorch模型训练时出错: {e}")
+else:
+    print('\n========== PyTorch Binary Logistic Regression 模型评估 ==========')
+    print("PyTorch不可用，跳过PyTorch逻辑回归模型训练")
 
 #==================================================
 # Code cell 35
