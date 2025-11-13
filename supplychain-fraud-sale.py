@@ -774,41 +774,6 @@ print(pd.Series(y_train).value_counts())
 print("\nSMOTE后训练集类别分布:")
 print(pd.Series(y_train_resampled).value_counts())
 
-# 尝试其他采样方法
-print("\n========== 尝试改进的采样方法 ==========")
-
-# 1. 尝试Borderline-SMOTE
-try:
-    from imblearn.over_sampling import BorderlineSMOTE
-    print("\n使用Borderline-SMOTE进行过采样...")
-    borderline_smote = BorderlineSMOTE(random_state=2021, k_neighbors=5)
-    X_train_borderline, y_train_borderline = borderline_smote.fit_resample(X_train, y_train)
-    print("Borderline-SMOTE后训练集类别分布:")
-    print(pd.Series(y_train_borderline).value_counts())
-except ImportError:
-    print("BorderlineSMOTE不可用")
-
-# 2. 尝试ADASYN
-try:
-    from imblearn.over_sampling import ADASYN
-    print("\n使用ADASYN进行过采样...")
-    adasyn = ADASYN(random_state=2021, n_neighbors=5)
-    X_train_adasyn, y_train_adasyn = adasyn.fit_resample(X_train, y_train)
-    print("ADASYN后训练集类别分布:")
-    print(pd.Series(y_train_adasyn).value_counts())
-except ImportError:
-    print("ADASYN不可用")
-
-# 3. 尝试SMOTEENN混合方法
-try:
-    from imblearn.combine import SMOTEENN
-    print("\n使用SMOTEENN进行混合采样...")
-    smoteenn = SMOTEENN(random_state=2021, smote=SMOTE(k_neighbors=5))
-    X_train_smoteenn, y_train_smoteenn = smoteenn.fit_resample(X_train, y_train)
-    print("SMOTEENN后训练集类别分布:")
-    print(pd.Series(y_train_smoteenn).value_counts())
-except ImportError:
-    print("SMOTEENN不可用")
 
 # 4. 尝试异常检测方法
 print("\n========== 尝试异常检测方法 ==========")
@@ -842,38 +807,3 @@ try:
     
 except ImportError:
     print("异常检测方法所需的库不可用")
-
-# 5. 使用不同的评估指标
-print("\n========== 使用AUC-PR评估指标 ==========")
-try:
-    from sklearn.metrics import average_precision_score, roc_auc_score
-    
-    # 使用XGBoost模型替代随机森林模型
-    # 计算预测概率
-    y_proba = xgr.predict_proba(X_test)
-    
-    # 对于多分类问题，我们需要转换为二分类概率
-    # 获取欺诈类别（标签8）的概率
-    fraud_class_index = list(xgr.classes_).index(8) if 8 in xgr.classes_ else -1
-    
-    if fraud_class_index >= 0:
-        y_proba_fraud = y_proba[:, fraud_class_index]
-        y_test_binary_auc = y_test.apply(lambda x: 1 if x == 8 else 0)
-        
-        # 计算AUC-ROC和AUC-PR
-        auc_roc = roc_auc_score(y_test_binary_auc, y_proba_fraud)
-        auc_pr = average_precision_score(y_test_binary_auc, y_proba_fraud)
-        
-        print(f"AUC-ROC: {auc_roc:.4f}")
-        print(f"AUC-PR: {auc_pr:.4f}")
-    else:
-        print("未找到欺诈类别")
-        
-except Exception as e:
-    print(f"计算AUC指标时出错: {e}")
-
-print("\n========== 采样方法对比完成 ==========")
-
-#==================================================
-# Code cell 35
-#==================================================
