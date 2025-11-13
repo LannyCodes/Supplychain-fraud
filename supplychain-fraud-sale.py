@@ -50,7 +50,7 @@ import time
 
 warnings.filterwarnings('ignore')
 matplotlib.rcParams['font.sans-serif']=[u'simHei']
-%matplotlib inline
+
 
 ## 数据处理的
 import pandas_profiling as pp
@@ -87,7 +87,7 @@ from sklearn.pipeline import Pipeline
 
 #数据加载
 dataset=pd.read_csv(input+'SupplyChain.csv', encoding='unicode_escape')
-dataset
+
 
 #==================================================
 # Code cell 6
@@ -102,7 +102,7 @@ data = dataset.copy()
 # 18万比订单，53个特征
 print(data.shape)
 temp = data.isnull().sum()
-temp[temp>0]
+# temp[temp>0]
 
 #==================================================
 # Code cell 8
@@ -180,7 +180,7 @@ data.info()
 #data[['order date (DateOrders)']]
 #创建时间影索引
 temp = pd.DatetimeIndex(data['order date (DateOrders)'])
-temp
+
 
 #==================================================
 # Code cell 15
@@ -192,7 +192,7 @@ data['order_month'] = temp.month
 data['order_week_day'] = temp.weekday
 data['order_hour'] = temp.hour
 #data['order_month_year'] = temp.to_period('M')  auto-sklearn unsported
-data
+
 
 #==================================================
 # Code cell 16
@@ -224,7 +224,7 @@ df_month['Sales'].mean().plot(figsize=(12, 12), title='Average sales in Months')
 #data[['shipping date (DateOrders)']]
 #创建时间影索引
 temp = pd.DatetimeIndex(data['shipping date (DateOrders)'])
-temp
+
 
 #==================================================
 # Code cell 18
@@ -236,7 +236,6 @@ data['shipping_month'] = temp.month
 data['shipping_week_day'] = temp.weekday
 data['shipping_hour'] = temp.hour
 # data['shipping_month_year'] = temp.to_period('M')    auto-sklearn unsported
-data
 
 #==================================================
 # Code cell 19
@@ -280,7 +279,7 @@ clfs = {c:preprocessing.LabelEncoder() for c in str_cols}
 for col, clf in clfs.items():
     data2[col] = clfs[col].fit_transform(data2[col])
 
-data2
+
 
 # 标签反转演示
 # for col, clf in clfs.items():
@@ -369,7 +368,7 @@ print(pd.Series(y_train_resampled).value_counts())
 # Code cell 27
 #==================================================
 
-%%time
+
 
 # GaussianNB
 from sklearn.naive_bayes import GaussianNB
@@ -414,7 +413,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 # Code cell 28
 #==================================================
 
-%%time
+
 
 # LinearSVC
 from sklearn.svm import LinearSVC
@@ -464,7 +463,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 # Code cell 29
 #==================================================
 
-%%time
+
 
 # KNeighborsClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -508,7 +507,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 # Code cell 30
 #==================================================
 
-%%time 
+
 
 # LinearDiscriminantAnalysis
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -553,7 +552,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 # Code cell 31
 #==================================================
 
-%%time
+
 
 # DecisionTreeClassifier
 #from sklearn.model_selection import cross_val_score
@@ -598,7 +597,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 # Code cell 32
 #==================================================
 
-%%time
+
 
 # RandomForestClassifier
 
@@ -641,7 +640,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 # Code cell 33
 #==================================================
 
-%%time
+
 
 #XGBClassifier 
 # 计算类别权重比例用于 XGBoost
@@ -700,8 +699,6 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 #==================================================
 # Code cell 34
 #==================================================
-
-# %%time
 
 # # 训练
 # LR = sklearn.linear_model.LinearRegression()  #报错
