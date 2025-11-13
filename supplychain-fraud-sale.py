@@ -86,6 +86,8 @@ from sklearn.decomposition import PCA,FastICA,FactorAnalysis,SparsePCA
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.pipeline import Pipeline as ImbPipeline
+# 删除错误的导入
+# from imblearn.combine import 
 
 import lightgbm as lgb
 import xgboost as xgb
@@ -410,22 +412,6 @@ print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
 #from sklearn.model_selection import cross_val_score
 # RandomForestClassifier
 
-# 混淆矩阵
-m = confusion_matrix(y_test_2, y_pred_2)
-print('\n混淆矩阵：')
-print(m)
-
-# 准确率
-print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2, y_pred_2):.4f}")
-
-# 精确率、召回率、F1分数（针对欺诈类别）
-print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2):.4f}")
-print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2):.4f}")
-print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
-
-# 分类报告
-print('\n分类报告：')
-print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
 
 #==================================================
 # Code cell 31
