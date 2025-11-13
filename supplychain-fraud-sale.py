@@ -30,8 +30,8 @@ for dirname, _, filenames in os.walk('/kaggle/input'):
 # Code cell 3
 #==================================================
 
-input = '/kaggle/input/'  # Kaggle标准输入路径
-output = '/kaggle/working/'  # 输出路径
+input = '/kaggle/input/source/'  # 修改为正确的数据集路径
+output = '/kaggle/working/'  # 输出路径保持不变
 
 #==================================================
 # Code cell 4
