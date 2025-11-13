@@ -674,7 +674,9 @@ xgr = xgb.XGBClassifier(learning_rate=0.1,
                         subsample=0.8,             # 随机选择80%样本建立决策树
                         colsample_bytree=0.8,      # 随机选择80%特征建立决策树
                         objective='multi:softmax', # 指定损失函数
-                        random_state=27            # 随机数
+                        random_state=27,           # 随机数
+                        tree_method='gpu_hist',    # 使用GPU加速
+                        predictor='gpu_predictor'  # 使用GPU进行预测
                         )
 
 # 使用 SMOTE 平衡后的数据训练
@@ -720,6 +722,8 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 #==================================================
 # Code cell 34
 #==================================================
+
+"""
 print('\n========== LogisticRegression 模型评估 ==========')
 # # 训练
 # LR = sklearn.linear_model.LinearRegression()  #报错
@@ -766,7 +770,7 @@ print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2):.4f}")
 # 分类报告
 print('\n分类报告：')
 print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '欺诈订单']))
-
+"""
 #==================================================
 # Code cell 35
 #==================================================
