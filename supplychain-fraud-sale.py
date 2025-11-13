@@ -30,8 +30,8 @@ for dirname, _, filenames in os.walk('/kaggle/input'):
 # Code cell 3
 #==================================================
 
-input = '/kaggle/input/source/'
-output = '/kaggle/working/'
+input = '/kaggle/input/'  # Kaggle标准输入路径
+output = '/kaggle/working/'  # 输出路径
 
 #==================================================
 # Code cell 4
@@ -50,10 +50,21 @@ import time
 
 warnings.filterwarnings('ignore')
 matplotlib.rcParams['font.sans-serif']=[u'simHei']
-
+%matplotlib inline
 
 ## 数据处理的
-import pandas_profiling as pp
+# 处理pandas-profiling的兼容性问题
+try:
+    import pandas_profiling as pp
+except ImportError:
+    try:
+        from ydata_profiling import ProfileReport
+        # 创建一个兼容的别名
+        pp = ProfileReport
+    except ImportError:
+        print("未找到pandas-profiling或ydata-profiling库")
+        pp = None
+
 #缺失值可视化工具
 import missingno as msno
 
