@@ -13,7 +13,8 @@ scipy>=1.7.0
 IPython>=7.25.0
 
 # 数据分析报告
-pandas-profiling>=3.1.0
+# 使用新的ydata-profiling替代pandas-profiling
+ydata-profiling>=4.0.0
 
 # 缺失值可视化
 missingno>=0.5.0
