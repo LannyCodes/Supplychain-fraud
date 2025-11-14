@@ -356,6 +356,23 @@ astype_features = [
 for column in astype_features:
     data[column] = data[column].astype('category')
 
+# 添加Type和Delivery Status的交叉特征
+print("构建Type和Delivery Status的交叉特征...")
+# 保存原始的Type和Delivery Status用于交叉特征构建
+data['Type_Delivery_Cross'] = data['Type'].astype(str) + '_' + data['Delivery Status'].astype(str)
+
+# 将交叉特征也加入到类别列中
+astype_columns.append('Type_Delivery_Cross')
+
+# 重新进行类别转换
+for column in ['Type_Delivery_Cross']:
+    data[column] = data[column].astype('category')
+
+# 对交叉特征进行LabelEncoder编码
+data2['Type_Delivery_Cross'] = preprocessing.LabelEncoder().fit_transform(data['Type_Delivery_Cross'])
+
+# 更新特征列列表
+feature_cols = [column for column in data2.columns if column not in drop_features]
 
 # 全量数据
 X = data2[feature_cols]
@@ -382,7 +399,7 @@ print(f"\n原始训练集样本数: {len(y_train)}")
 print(f"过采样后训练集样本数: {len(y_train_resampled)}")
 print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
 
-
+"""
 # RandomForestClassifier
 print('\n========== RandomForestClassifier 模型评估 ==========')
 from sklearn.ensemble import RandomForestClassifier
@@ -468,7 +485,7 @@ print(classification_report(y_test_2, y_pred_2, target_names=['正常订单', '�
 #==================================================
 # Code cell 32
 #==================================================
-
+"""
 
 
 print('\n========== XGBClassifier 模型评估 ==========')
@@ -572,7 +589,7 @@ except Exception as e:
 #==================================================
 # Code cell 33
 #==================================================
-
+"""
 print('\n========== LightGBM 模型评估 ==========')
 
 # LightGBM
@@ -713,7 +730,8 @@ except Exception as e:
         print("CPU版本运行成功")
     except Exception as cpu_e:
         print(f"CPU版本也失败: {cpu_e}")
-
+"""
+"""
 # 导入PyTorch逻辑回归模型
 try:
     from logistic_regression_pytorch import train_binary_logistic_regression_pytorch
@@ -783,6 +801,7 @@ if PYTORCH_AVAILABLE:
 else:
     print('\n========== PyTorch Binary Logistic Regression 模型评估 ==========')
     print("PyTorch不可用，跳过PyTorch逻辑回归模型训练")
+"""
 
 #==================================================
 # Code cell 34
@@ -792,6 +811,8 @@ else:
 # 交叉验证，
 # 网格搜索
 
+
+"""
 # 查看当前类别分布
 print("原始训练集类别分布:")
 print(pd.Series(y_train).value_counts())
@@ -831,3 +852,5 @@ try:
     
 except ImportError:
     print("异常检测方法所需的库不可用")
+
+"""
