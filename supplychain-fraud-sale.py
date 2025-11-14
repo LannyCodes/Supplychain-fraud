@@ -106,6 +106,20 @@ from sklearn.pipeline import Pipeline
 #数据加载
 dataset=pd.read_csv(input+'SupplyChain.csv', encoding='unicode_escape')
 
+# 打印Type、Delivery Status和Late_delivery_risk的取值
+print("========== 特征取值分析 ==========")
+print("\nType字段取值:")
+print(dataset['Type'].value_counts())
+
+print("\nDelivery Status字段取值:")
+print(dataset['Delivery Status'].value_counts())
+
+if 'Late delivery risk' in dataset.columns:
+    print("\nLate delivery risk字段取值:")
+    print(dataset['Late delivery risk'].value_counts())
+elif 'Late_delivery_risk' in dataset.columns:
+    print("\nLate_delivery_risk字段取值:")
+    print(dataset['Late_delivery_risk'].value_counts())
 
 #==================================================
 # Code cell 6
