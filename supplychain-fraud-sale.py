@@ -365,9 +365,8 @@ data['Type_Delivery_Cross'] = data['Type'].astype(str) + '_' + data['Delivery St
 if 'Type_Delivery_Cross' not in astype_columns:
     astype_columns.append('Type_Delivery_Cross')
 
-# 重新进行类别转换
-for column in ['Type_Delivery_Cross']:
-    data[column] = data[column].astype('category')
+# 对交叉特征进行类别转换
+data['Type_Delivery_Cross'] = data['Type_Delivery_Cross'].astype('category')
 
 # 重新对包含新特征的data2进行LabelEncoder编码
 print("重新进行LabelEncoder编码，包含交叉特征...")
