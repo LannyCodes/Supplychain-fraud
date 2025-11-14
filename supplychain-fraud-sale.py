@@ -277,6 +277,17 @@ data['shipping_hour'] = temp.hour
 # Code cell 19
 #==================================================
 
+# 先创建交叉特征，再进行类别转换
+# 添加Type和Delivery Status的交叉特征
+print("构建Type和Delivery Status的交叉特征...")
+# 保存原始的Type和Delivery Status用于交叉特征构建
+data['Type_Delivery_Cross'] = data['Type'].astype(str) + '_' + data['Delivery Status'].astype(str)
+
+# 将交叉特征也加入到类别列中
+if 'Type_Delivery_Cross' not in astype_columns:
+    astype_columns.append('Type_Delivery_Cross')
+
+# 对所有类别特征进行转换
 for column in astype_columns:
     data[column] = data[column].astype('category')
 
@@ -355,18 +366,6 @@ astype_features = [
 
 for column in astype_features:
     data[column] = data[column].astype('category')
-
-# 添加Type和Delivery Status的交叉特征
-print("构建Type和Delivery Status的交叉特征...")
-# 保存原始的Type和Delivery Status用于交叉特征构建
-data['Type_Delivery_Cross'] = data['Type'].astype(str) + '_' + data['Delivery Status'].astype(str)
-
-# 将交叉特征也加入到类别列中
-if 'Type_Delivery_Cross' not in astype_columns:
-    astype_columns.append('Type_Delivery_Cross')
-
-# 对交叉特征进行类别转换
-data['Type_Delivery_Cross'] = data['Type_Delivery_Cross'].astype('category')
 
 # 重新对包含新特征的data2进行LabelEncoder编码
 print("重新进行LabelEncoder编码，包含交叉特征...")
