@@ -373,7 +373,15 @@ print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
 print('\n========== RandomForestClassifier 模型评估 ==========')
 from sklearn.ensemble import RandomForestClassifier
 # 添加 class_weight='balanced' 处理不平衡数据
-clf = RandomForestClassifier(max_depth=7, random_state=2021, class_weight='balanced')
+clf = RandomForestClassifier(
+    max_depth=10,               # 增加树的深度
+    n_estimators=200,           # 增加树的数量
+    random_state=2021, 
+    class_weight='balanced',    # 处理不平衡数据
+    min_samples_split=5,        # 增加分割所需的最小样本数
+    min_samples_leaf=2,         # 增加叶节点最小样本数
+    max_features='sqrt'         # 限制特征数量
+)
 clf.fit(X_train_resampled, y_train_resampled)
 
 y_pred = clf.predict(X_test)
@@ -454,19 +462,20 @@ print('\n========== XGBClassifier 模型评估 ==========')
 #XGBClassifier 
 # 计算类别权重比例用于 XGBoost
 # 针对多分类问题，使用平衡后的数据或保持原数据但不设置scale_pos_weight
-xgr = xgb.XGBClassifier(learning_rate=0.1,
-                        n_estimators=1000,         # 树的个数--1000棵树建立xgboost
-                        max_depth=6,               # 树的深度
-                        min_child_weight = 1,      # 叶子节点最小权重
-                        gamma=0.,                  # 惩罚项中叶子结点个数前的参数
-                        subsample=0.8,             # 随机选择80%样本建立决策树
-                        colsample_bytree=0.8,      # 随机选择80%特征建立决策树
-                        objective='multi:softmax', # 指定损失函数
-                        eval_metric='mlogloss',    # 显式指定评估指标，避免警告
-                        random_state=27,           # 随机数
-                        tree_method='gpu_hist',    # 使用GPU加速
-                        predictor='gpu_predictor'  # 使用GPU进行预测
-                        )
+xgr = xgb.XGBClassifier(
+    learning_rate=0.05,         # 降低学习率
+    n_estimators=2000,          # 增加树的数量
+    max_depth=8,                # 适当增加深度
+    min_child_weight=3,         # 增加子节点最小权重
+    gamma=0.1,                  # 增加正则化
+    subsample=0.7,              # 减少样本采样比例
+    colsample_bytree=0.7,       # 减少特征采样比例
+    objective='multi:softmax',
+    eval_metric='mlogloss',     # 显式指定评估指标，避免警告
+    random_state=27,
+    tree_method='gpu_hist',     # 使用GPU加速
+    predictor='gpu_predictor'   # 使用GPU进行预测
+)
 
 # 使用 SMOTE 平衡后的数据训练
 xgr.fit(X_train_resampled, y_train_resampled)
@@ -556,13 +565,19 @@ print('\n========== LightGBM 模型评估 ==========')
 # 使用 SMOTE 平衡后的数据训练
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
-    num_leaves=31,
-    max_depth=6,  # 限制最大深度，避免过拟合
-    learning_rate=0.1,
-    n_estimators=100,  # 减少树的数量
+    num_leaves=127,             # 增加叶子节点数
+    max_depth=8,                # 增加最大深度
+    learning_rate=0.05,         # 降低学习率
+    n_estimators=500,           # 增加树的数量
     random_state=27,
     class_weight='balanced',
-    device='gpu'  # 在Kaggle上启用GPU支持
+    min_child_samples=20,       # 增加子节点最小样本数
+    min_child_weight=0.001,     # 增加子节点最小权重
+    subsample=0.8,              # 样本采样比例
+    colsample_bytree=0.8,       # 特征采样比例
+    reg_alpha=0.1,              # L1正则化
+    reg_lambda=0.1,             # L2正则化
+    device='gpu'                # 启用GPU支持
 )
 
 # 添加异常处理来捕获训练过程中的错误
@@ -637,12 +652,18 @@ except Exception as e:
         print("尝试使用CPU版本...")
         lgb_model_cpu = lgb.LGBMClassifier(
             boosting_type='gbdt',
-            num_leaves=31,
-            max_depth=6,
-            learning_rate=0.1,
-            n_estimators=100,
+            num_leaves=127,             # 增加叶子节点数
+            max_depth=8,                # 增加最大深度
+            learning_rate=0.05,         # 降低学习率
+            n_estimators=500,           # 增加树的数量
             random_state=27,
-            class_weight='balanced'
+            class_weight='balanced',
+            min_child_samples=20,       # 增加子节点最小样本数
+            min_child_weight=0.001,     # 增加子节点最小权重
+            subsample=0.8,              # 样本采样比例
+            colsample_bytree=0.8,       # 特征采样比例
+            reg_alpha=0.1,              # L1正则化
+            reg_lambda=0.1              # L2正则化
             # 不指定device参数，使用默认CPU
         )
         lgb_model_cpu.fit(X_train_resampled, y_train_resampled)
@@ -702,10 +723,10 @@ if PYTORCH_AVAILABLE:
         X_train_scaled = scaler.fit_transform(X_train_resampled)  # 使用SMOTE过采样后的训练数据
         X_test_scaled = scaler.transform(X_test)
         
-        # 调用PyTorch二分类LR模型
+        # 调用PyTorch二分类LR模型，调整参数以改善训练效果
         model, predictions, probabilities = train_binary_logistic_regression_pytorch(
             X_train_scaled, y_train_binary, X_test_scaled, y_test_binary, 
-            num_epochs=1000, learning_rate=0.01
+            num_epochs=2000, learning_rate=0.001  # 增加训练轮数，降低学习率
         )
         
         # 打印特征重要性（PyTorch逻辑回归的权重）
@@ -723,9 +744,9 @@ if PYTORCH_AVAILABLE:
         # 计算评估指标
         from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
         accuracy = accuracy_score(y_test_binary, predictions)
-        precision = precision_score(y_test_binary, predictions)
-        recall = recall_score(y_test_binary, predictions)
-        f1 = f1_score(y_test_binary, predictions)
+        precision = precision_score(y_test_binary, predictions, zero_division=0)
+        recall = recall_score(y_test_binary, predictions, zero_division=0)
+        f1 = f1_score(y_test_binary, predictions, zero_division=0)
         
         print('\n混淆矩阵：')
         print(confusion_matrix(y_test_binary, predictions))
