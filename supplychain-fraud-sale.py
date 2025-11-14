@@ -311,8 +311,6 @@ clfs = {c:preprocessing.LabelEncoder() for c in str_cols}
 for col, clf in clfs.items():
     data2[col] = clfs[col].fit_transform(data2[col])
 
-
-
 # 标签反转演示
 # for col, clf in clfs.items():
 #     display(col, clfs[col].inverse_transform([0]))
@@ -368,11 +366,23 @@ astype_columns.append('Type_Delivery_Cross')
 for column in ['Type_Delivery_Cross']:
     data[column] = data[column].astype('category')
 
-# 对交叉特征进行LabelEncoder编码
-data2['Type_Delivery_Cross'] = preprocessing.LabelEncoder().fit_transform(data['Type_Delivery_Cross'])
+# 重新对包含新特征的data2进行LabelEncoder编码
+print("重新进行LabelEncoder编码，包含交叉特征...")
+data2 = data.copy()
+str_cols = data2.select_dtypes(include=['category']).columns
+clfs = {c:preprocessing.LabelEncoder() for c in str_cols}
+
+for col, clf in clfs.items():
+    data2[col] = clfs[col].fit_transform(data2[col])
 
 # 更新特征列列表
 feature_cols = [column for column in data2.columns if column not in drop_features]
+
+# 打印特征数量确认
+print(f"总特征数量: {len(feature_cols)}")
+print("特征列表:")
+for i, col in enumerate(feature_cols):
+    print(f"{i+1:2d}. {col}")
 
 # 全量数据
 X = data2[feature_cols]
