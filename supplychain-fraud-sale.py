@@ -522,6 +522,68 @@ feature_importance_df_xgb = pd.DataFrame({
 }).sort_values(by='importance', ascending=False)
 print(feature_importance_df_xgb.head(20))
 
+# 打印前3个最重要特征的取值分布
+print("\n========== 前3个最重要特征的取值分布 ==========")
+top_3_features = feature_importance_df_xgb.head(3)['feature'].tolist()
+for feature in top_3_features:
+    print(f"\n{feature} 特征取值分布:")
+    if feature in data.columns:
+        print(data[feature].value_counts().sort_values(ascending=False))
+    else:
+        # 如果特征名在原始数据中不存在，尝试在编码后的数据中查找
+        print("特征取值需要查看编码后的数据...")
+
+# 深入分析前3个最重要特征对欺诈结果的影响
+print("\n========== 前3个最重要特征的欺诈率分析 ==========")
+# 重建原始数据和目标变量的对应关系（使用未过采样的数据）
+X_train_original = X_train
+y_train_original = y_train
+
+# 创建包含原始特征和目标变量的数据框
+train_data_with_target = X_train_original.copy()
+train_data_with_target['Order_Status'] = y_train_original
+
+for feature in top_3_features:
+    print(f"\n{feature} 特征的欺诈率分析:")
+    if feature in data.columns:
+        # 获取原始数据中的特征值
+        feature_values = data.loc[X_train_original.index, feature]
+        
+        # 计算每个特征值的欺诈率
+        fraud_analysis = pd.DataFrame({
+            'feature_value': feature_values,
+            'order_status': y_train_original
+        })
+        
+        # 计算每个特征值的总数量和欺诈数量
+        fraud_stats = fraud_analysis.groupby('feature_value').agg({
+            'order_status': ['count', lambda x: sum(x == 8)]
+        }).round(4)
+        
+        # 重命名列
+        fraud_stats.columns = ['total_count', 'fraud_count']
+        fraud_stats['fraud_rate'] = fraud_stats['fraud_count'] / fraud_stats['total_count']
+        
+        # 按欺诈率排序
+        fraud_stats = fraud_stats.sort_values('fraud_rate', ascending=False)
+        print(fraud_stats)
+    else:
+        print("无法找到原始特征值进行分析...")
+
+# 交叉分析：特征与目标变量的关系
+print("\n========== 前3个最重要特征与Order Status的交叉分析 ==========")
+for feature in top_3_features:
+    print(f"\n{feature} 与 Order Status 的交叉分析:")
+    if feature in data.columns:
+        cross_tab = pd.crosstab(data.loc[X_train_original.index, feature], 
+                               y_train_original, 
+                               normalize='index').round(4)
+        # 只显示欺诈类别(8)的比例，并按比例排序
+        fraud_proportion = cross_tab[8].sort_values(ascending=False)
+        print(fraud_proportion)
+    else:
+        print("无法进行交叉分析...")
+
 ### plot feature importance
 fig,ax = plt.subplots(figsize=(15,15))
 xgb.plot_importance(xgr,
