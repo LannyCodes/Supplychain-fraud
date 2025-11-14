@@ -414,6 +414,110 @@ else:
 X = data2[feature_cols]
 y = data2['Order Status']
 
+# 添加WOE和IV计算函数
+def calculate_woe_iv(dataset, feature, target):
+    """
+    计算特征的WOE和IV值
+    
+    Parameters:
+    dataset: 数据集
+    feature: 特征名称
+    target: 目标变量名称
+    
+    Returns:
+    woe_df: 包含WOE值的DataFrame
+    iv: 信息值
+    """
+    print(f"\n计算特征 '{feature}' 的WOE和IV值...")
+    
+    # 创建交叉表
+    df = pd.crosstab(dataset[feature], dataset[target], margins=True)
+    
+    # 重命名列
+    df.rename(columns={0: 'Non-Event', 1: 'Event'}, inplace=True)
+    df.rename(index={'All': 'Total'}, inplace=True)
+    
+    # 计算分布比例
+    df['Event_Rate'] = df['Event'] / df.loc['Total', 'Event']
+    df['Non_Event_Rate'] = df['Non-Event'] / df.loc['Total', 'Non-Event']
+    
+    # 计算WOE
+    df['WOE'] = np.log(df['Event_Rate'] / df['Non_Event_Rate'])
+    
+    # 处理无穷大值
+    df['WOE'] = df['WOE'].replace([np.inf, -np.inf], 0)
+    
+    # 计算IV贡献
+    df['IV'] = (df['Event_Rate'] - df['Non_Event_Rate']) * df['WOE']
+    
+    # 计算总IV值
+    iv = df['IV'].sum()
+    
+    # 选择需要的列
+    woe_df = df[['Event', 'Non-Event', 'Event_Rate', 'Non_Event_Rate', 'WOE', 'IV']].copy()
+    
+    return woe_df, iv
+
+def calculate_all_features_iv(X, y, top_n=10):
+    """
+    计算所有特征的IV值并排序
+    
+    Parameters:
+    X: 特征数据
+    y: 目标变量（需要转换为二分类）
+    top_n: 返回前N个特征
+    
+    Returns:
+    iv_df: 包含所有特征IV值的DataFrame
+    """
+    # 将目标变量转换为二分类（8为欺诈，其他为正常）
+    y_binary = y.apply(lambda x: 1 if x == 8 else 0)
+    
+    # 存储所有特征的IV值
+    iv_values = []
+    
+    print("计算所有特征的IV值...")
+    
+    # 对每个特征计算IV值
+    for feature in X.columns:
+        try:
+            # 对于连续特征，需要先分箱
+            if X[feature].dtype in ['int64', 'float64']:
+                # 使用分位数分箱
+                X_temp = X[feature].copy()
+                # 处理缺失值
+                if X_temp.isnull().sum() > 0:
+                    X_temp = X_temp.fillna(X_temp.median())
+                
+                # 分箱
+                if X_temp.nunique() > 10:
+                    # 如果唯一值超过10个，进行分箱
+                    X_binned = pd.qcut(X_temp, q=10, duplicates='drop')
+                else:
+                    # 如果唯一值较少，直接使用原始值
+                    X_binned = X_temp
+                
+                woe_df, iv = calculate_woe_iv(pd.DataFrame({feature: X_binned, 'target': y_binary}), feature, 'target')
+            else:
+                # 对于分类特征，直接计算
+                woe_df, iv = calculate_woe_iv(pd.DataFrame({feature: X[feature], 'target': y_binary}), feature, 'target')
+            
+            iv_values.append({'Feature': feature, 'IV': iv})
+            print(f"特征 '{feature}' 的IV值: {iv:.4f}")
+            
+        except Exception as e:
+            print(f"计算特征 '{feature}' 的IV值时出错: {e}")
+            iv_values.append({'Feature': feature, 'IV': 0})
+    
+    # 创建IV值DataFrame并排序
+    iv_df = pd.DataFrame(iv_values)
+    iv_df = iv_df.sort_values('IV', ascending=False).reset_index(drop=True)
+    
+    print(f"\n前{top_n}个最具预测能力的特征:")
+    print(iv_df.head(top_n))
+    
+    return iv_df
+
 # 转换为二分类，需要修改模型
 # "SUSPECTED_FRAUD" --> 8
 # y_2 = y.apply(lambda x : 1 if x == 8 else 0).copy()
@@ -547,6 +651,10 @@ xgr = xgb.XGBClassifier(
 # 使用 SMOTE 平衡后的数据训练
 xgr.fit(X_train_resampled, y_train_resampled)
 y_pred = xgr.predict(X_test)
+
+# 计算所有特征的IV值
+print("\n========== 特征IV值分析 ==========")
+iv_df = calculate_all_features_iv(X_train, y_train, top_n=20)
 
 # 打印特征重要性
 print("\n特征重要性 (XGBoost):")
