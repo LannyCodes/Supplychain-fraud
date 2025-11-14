@@ -183,6 +183,10 @@ astype_columns = ['Type', 'Delivery Status', 'Category Name', 'Customer City', '
                   'Product Name', 'Shipping Mode', 'shipping date (DateOrders)', 'order date (DateOrders)', 'Order Status'
                  ]
 
+# 添加Type和Delivery Status的交叉特征到astype_columns列表中
+if 'Type_Delivery_Cross' not in astype_columns:
+    astype_columns.append('Type_Delivery_Cross')
+
 # drop
 drop_columns = ['Customer Email', 'Customer Password', 'Product Image',  'Order Zipcode', 'Product Description']
 
@@ -343,8 +347,6 @@ drop_features = ['Order Status',
                  #'order_year', 'order_month', 'order_week_day', 'order_hour',
                  'order date (DateOrders)', 'shipping date (DateOrders)'
                 ]
-feature_cols = [column for column in data2.columns if column not in drop_features]
-# display(feature_cols)
 
 astype_features = [
                    'shipping_year', 'shipping_month', 'shipping_week_day', 'shipping_hour',
@@ -360,7 +362,8 @@ print("构建Type和Delivery Status的交叉特征...")
 data['Type_Delivery_Cross'] = data['Type'].astype(str) + '_' + data['Delivery Status'].astype(str)
 
 # 将交叉特征也加入到类别列中
-astype_columns.append('Type_Delivery_Cross')
+if 'Type_Delivery_Cross' not in astype_columns:
+    astype_columns.append('Type_Delivery_Cross')
 
 # 重新进行类别转换
 for column in ['Type_Delivery_Cross']:
@@ -383,6 +386,22 @@ print(f"总特征数量: {len(feature_cols)}")
 print("特征列表:")
 for i, col in enumerate(feature_cols):
     print(f"{i+1:2d}. {col}")
+
+# 特别检查交叉特征是否被包含
+if 'Type_Delivery_Cross' in feature_cols:
+    print("\n✓ 交叉特征 'Type_Delivery_Cross' 已成功添加到特征集中")
+else:
+    print("\n✗ 交叉特征 'Type_Delivery_Cross' 未找到，请检查代码")
+    # 调试信息：检查data中是否存在该列
+    if 'Type_Delivery_Cross' in data.columns:
+        print(f"  - 'Type_Delivery_Cross' 在data中存在")
+    else:
+        print(f"  - 'Type_Delivery_Cross' 在data中不存在")
+    # 调试信息：检查drop_features中是否意外包含了该特征
+    if 'Type_Delivery_Cross' in drop_features:
+        print(f"  - 'Type_Delivery_Cross' 被意外添加到drop_features中")
+    else:
+        print(f"  - 'Type_Delivery_Cross' 不在drop_features中")
 
 # 全量数据
 X = data2[feature_cols]
