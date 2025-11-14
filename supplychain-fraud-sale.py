@@ -376,8 +376,17 @@ clfs = {c:preprocessing.LabelEncoder() for c in str_cols}
 for col, clf in clfs.items():
     data2[col] = clfs[col].fit_transform(data2[col])
 
+# 调试信息：检查原始数据和处理后数据的形状
+print(f"原始数据形状: {data.shape}")
+print(f"处理后数据形状: {data2.shape}")
+
 # 更新特征列列表
 feature_cols = [column for column in data2.columns if column not in drop_features]
+
+# 打印调试信息
+print(f"原始特征数量: {data2.shape[1]}")
+print(f"drop_features 中的特征: {drop_features}")
+print(f"最终特征数量: {len(feature_cols)}")
 
 # 打印特征数量确认
 print(f"总特征数量: {len(feature_cols)}")
