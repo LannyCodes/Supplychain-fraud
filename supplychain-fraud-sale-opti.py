@@ -646,9 +646,9 @@ xgr_optimized_3 = xgb.XGBClassifier(
     n_estimators=1000,          # 第一组调优得到的最佳树数量
     max_depth=6,                # 直接使用最佳参数值
     min_child_weight=1,         # 直接使用最佳参数值
-    gamma=grid_search_3.best_params_['gamma'],
-    subsample=grid_search_3.best_params_['subsample'],
-    colsample_bytree=grid_search_3.best_params_['colsample_bytree'],
+    gamma=0,                    # 第三组调优得到的最佳参数
+    subsample=0.6,              # 第三组调优得到的最佳参数
+    colsample_bytree=0.6,       # 第三组调优得到的最佳参数
     objective='multi:softmax',
     eval_metric='mlogloss',
     random_state=27,
@@ -659,6 +659,79 @@ xgr_optimized_3 = xgb.XGBClassifier(
 
 xgr_optimized_3.fit(X_train_resampled, y_train_resampled)
 y_pred_optimized_3 = xgr_optimized_3.predict(X_test)
+
+# 第四组参数调优：reg_alpha, reg_lambda
+print("\n========== XGBoost第四组参数调优 ==========")
+
+# 第四组参数调优：reg_alpha, reg_lambda
+# 简化参数组合，只使用3组参数以提高速度
+param_grid_4 = {
+    'reg_alpha': [0, 0.1, 1],
+    'reg_lambda': [0, 0.1, 1]
+}
+
+# 创建基础模型用于调优（使用前三组调优得到的最佳参数）
+xgb_base_4 = xgb.XGBClassifier(
+    learning_rate=0.01,         # 第一组调优得到的最佳学习率
+    n_estimators=1000,          # 第一组调优得到的最佳树数量
+    max_depth=6,                # 第二组调优得到的最佳参数
+    min_child_weight=1,         # 第二组调优得到的最佳参数
+    gamma=0,                    # 第三组调优得到的最佳参数
+    subsample=0.6,              # 第三组调优得到的最佳参数
+    colsample_bytree=0.6,       # 第三组调优得到的最佳参数
+    objective='multi:softmax',
+    eval_metric='mlogloss',
+    random_state=27,
+    tree_method='gpu_hist',
+    predictor='gpu_predictor',
+    use_label_encoder=False     # 避免标签编码器警告
+)
+
+# 直接使用标准参数调优方法
+print("执行第四组参数调优 (reg_alpha, reg_lambda)...")
+grid_search_4 = GridSearchCV(
+    estimator=xgb_base_4,
+    param_grid=param_grid_4,
+    scoring='f1_macro',  # 使用F1分数作为评估指标
+    cv=3,  # 3折交叉验证
+    n_jobs=1,  # 限制并行任务数量以避免资源竞争
+    verbose=1
+)
+
+# 由于参数组合较少，我们使用更小的样本进行调优以节省时间
+# 使用10%的训练数据进行快速调优
+sample_size = int(0.1 * len(X_train_resampled))
+X_train_sample = X_train_resampled[:sample_size]
+y_train_sample = y_train_resampled[:sample_size]
+
+grid_search_4.fit(X_train_sample, y_train_sample)
+
+print("第四组参数调优完成!")
+print(f"最佳参数: {grid_search_4.best_params_}")
+print(f"最佳得分: {grid_search_4.best_score_:.4f}")
+
+# 使用最佳参数重新训练模型
+print("使用第四组最佳参数重新训练模型...")
+xgr_optimized_4 = xgb.XGBClassifier(
+    learning_rate=0.01,         # 第一组调优得到的最佳学习率
+    n_estimators=1000,          # 第一组调优得到的最佳树数量
+    max_depth=6,                # 第二组调优得到的最佳参数
+    min_child_weight=1,         # 第二组调优得到的最佳参数
+    gamma=0,                    # 第三组调优得到的最佳参数
+    subsample=0.6,              # 第三组调优得到的最佳参数
+    colsample_bytree=0.6,       # 第三组调优得到的最佳参数
+    reg_alpha=grid_search_4.best_params_['reg_alpha'],
+    reg_lambda=grid_search_4.best_params_['reg_lambda'],
+    objective='multi:softmax',
+    eval_metric='mlogloss',
+    random_state=27,
+    tree_method='gpu_hist',
+    predictor='gpu_predictor',
+    use_label_encoder=False     # 避免标签编码器警告
+)
+
+xgr_optimized_4.fit(X_train_resampled, y_train_resampled)
+y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
 
 # 打印前3个最重要特征的取值分布
 print("\n========== 前3个最重要特征的取值分布 ==========")
@@ -724,7 +797,7 @@ for feature in top_3_features:
 
 ### plot feature importance
 fig,ax = plt.subplots(figsize=(15,15))
-xgb.plot_importance(xgr_optimized_3,
+xgb.plot_importance(xgr_optimized_4,
                 height=0.5,
                 ax=ax,
                 max_num_features=64)
@@ -736,8 +809,8 @@ y_test_2 = y_test.apply(lambda x : 1 if x ==8 else 0).copy()
 y_test_2.value_counts()
 
 # # 转换为二分类标签
-display( pd.Series(y_pred_optimized_3).value_counts() )
-y_pred_2 = pd.Series(y_pred_optimized_3).apply(lambda x : 1 if x ==8 else 0).copy()
+display( pd.Series(y_pred_optimized_4).value_counts() )
+y_pred_2 = pd.Series(y_pred_optimized_4).apply(lambda x : 1 if x ==8 else 0).copy()
 pd.Series(y_pred_2).value_counts()
 
 # 混淆矩阵
@@ -764,12 +837,12 @@ try:
     y_proba_fraud = None
     
     # 针对不同模型获取欺诈类别的概率
-    if hasattr(xgr_optimized_3, "predict_proba"):
-        y_proba = xgr_optimized_3.predict_proba(X_test)
+    if hasattr(xgr_optimized_4, "predict_proba"):
+        y_proba = xgr_optimized_4.predict_proba(X_test)
         # 对于多分类问题，我们需要转换为二分类概率
         # 获取欺诈类别（标签8）的概率
-        if hasattr(xgr_optimized_3, "classes_"):
-            fraud_class_index = list(xgr_optimized_3.classes_).index(8) if 8 in xgr_optimized_3.classes_ else -1
+        if hasattr(xgr_optimized_4, "classes_"):
+            fraud_class_index = list(xgr_optimized_4.classes_).index(8) if 8 in xgr_optimized_4.classes_ else -1
             if fraud_class_index >= 0:
                 y_proba_fraud = y_proba[:, fraud_class_index]
     
