@@ -559,8 +559,7 @@ xgr = xgb.XGBClassifier(
     random_state=27,
     tree_method='gpu_hist',     # 使用GPU加速
     predictor='gpu_predictor',   # 使用GPU进行预测
-    use_label_encoder=False,    # 避免标签编码器警告
-    n_gpus=-1                   # 使用所有可用GPU
+    use_label_encoder=False     # 避免标签编码器警告
 )
 
 # 使用 SMOTE 平衡后的数据训练
@@ -602,8 +601,7 @@ xgb_base_3 = xgb.XGBClassifier(
     random_state=27,
     tree_method='gpu_hist',
     predictor='gpu_predictor',
-    use_label_encoder=False,    # 避免标签编码器警告
-    n_gpus=-1                   # 使用所有可用GPU
+    use_label_encoder=False     # 避免标签编码器警告
 )
 
 # 执行网格搜索
@@ -644,8 +642,7 @@ xgr_optimized_3 = xgb.XGBClassifier(
     random_state=27,
     tree_method='gpu_hist',
     predictor='gpu_predictor',
-    use_label_encoder=False,    # 避免标签编码器警告
-    n_gpus=-1                   # 使用所有可用GPU
+    use_label_encoder=False     # 避免标签编码器警告
 )
 
 xgr_optimized_3.fit(X_train_resampled, y_train_resampled)
