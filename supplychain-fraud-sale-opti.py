@@ -665,18 +665,6 @@ def train_with_dask_xgboost(client, X_train, y_train, X_test, y_test):
         print(f"使用Dask XGBoost训练时出错: {e}")
         return None, None
 
-# 创建Dask集群
-client, cluster = setup_dask_cluster()
-
-# 使用Dask XGBoost训练模型
-xgr, y_pred = train_with_dask_xgboost(client, X_train_resampled, y_train_resampled, X_test, y_test)
-
-# 关闭Dask集群
-if client is not None:
-    client.close()
-if cluster is not None:
-    cluster.close()
-
 # 创建Dask集群用于分布式训练
 def setup_dask_cluster():
     """设置Dask集群用于分布式训练"""
@@ -701,6 +689,18 @@ def setup_dask_cluster():
     except Exception as e:
         print(f"创建Dask集群时出错: {e}")
         return None, None
+
+# 创建Dask集群
+client, cluster = setup_dask_cluster()
+
+# 使用Dask XGBoost训练模型
+xgr, y_pred = train_with_dask_xgboost(client, X_train_resampled, y_train_resampled, X_test, y_test)
+
+# 关闭Dask集群
+if client is not None:
+    client.close()
+if cluster is not None:
+    cluster.close()
 
 # 计算所有特征的IV值
 print("\n========== 特征IV值分析 ==========")
