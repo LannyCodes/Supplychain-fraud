@@ -70,6 +70,63 @@ pip install -r requirements.txt
 
 Random Forest和LightGBM也展现出强劲性能。通过GPU加速，XGBoost、LightGBM和PyTorch模型的训练时间显著缩短。
 
+## 参数调优过程
+
+为了进一步提升模型性能，我们对XGBoost模型进行了四轮超参数调优：
+
+### 第一轮调优：learning_rate 和 n_estimators
+- 参数范围：learning_rate [0.01, 0.05, 0.1, 0.2]，n_estimators [1000, 1500, 2000, 2500]
+- 最佳参数：learning_rate=0.01, n_estimators=1000
+- 最佳得分：0.4743
+
+### 第二轮调优：max_depth 和 min_child_weight
+- 参数范围：max_depth [3, 4, 5, 6]，min_child_weight [1, 2, 3]
+- 最佳参数：max_depth=6, min_child_weight=1
+- 最佳得分：0.4743
+
+### 第三轮调优：gamma、subsample 和 colsample_bytree
+- 参数范围：gamma [0, 0.1, 0.2]，subsample [0.6, 0.8, 1.0]，colsample_bytree [0.6, 0.8, 1.0]
+- 最佳参数：gamma=0, subsample=0.6, colsample_bytree=0.6
+- 最佳得分：0.4745
+
+### 第四轮调优：reg_alpha 和 reg_lambda
+- 参数范围：reg_alpha [0, 0.1, 1]，reg_lambda [0, 0.1, 1]
+- 最佳参数：reg_alpha=0, reg_lambda=0
+- 最佳得分：0.4745
+
+## 多GPU使用过程
+
+项目最初尝试使用XGBoost的分布式训练功能来提升多GPU训练速度：
+- 通过Dask框架实现分布式计算
+- 使用LocalCUDACluster创建GPU集群
+- 配置device='cuda'以启用多GPU支持
+
+但在Kaggle环境中确认不支持多GPU训练：
+- Kaggle运行环境不支持Dask等分布式计算框架
+- 相关代码已移除，模型训练使用单GPU模式
+- 通过设置tree_method='gpu_hist'和predictor='gpu_predictor'参数启用GPU加速
+
+## 阈值调优过程
+
+为了平衡精确率和召回率，我们进行了阈值调优：
+- 基于F1分数计算最佳阈值：0.4975
+- 使用最佳阈值的评估结果：
+  - 准确率: 97.95%
+  - 精确率: 52.37%
+  - 召回率: 100.00%
+  - F1分数: 68.74%
+- 混淆矩阵：[[43192, 923], [0, 1015]]
+
+调优后模型能够识别出所有的欺诈订单（召回率100%），但精确率有所下降。
+
+## 最终精度
+
+经过完整的参数调优和阈值优化后，模型在测试集上的最终性能：
+- **准确率**: 97.95%
+- **精确率**: 52.37%
+- **召回率**: 100.00%
+- **F1分数**: 68.74%
+
 ## 注意事项
 
 - 脚本中的数据路径为Kaggle环境路径，本地运行时需要根据实际情况调整
