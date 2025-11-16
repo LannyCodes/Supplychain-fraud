@@ -92,6 +92,28 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 import lightgbm as lgb
 import xgboost as xgb
 
+# 尝试导入Dask相关库用于分布式训练
+try:
+    import dask
+    import dask.dataframe as dd
+    from dask.distributed import Client, LocalCluster
+    # 尝试导入LocalCUDACluster，如果失败则使用替代方案
+    try:
+        from dask_cuda import LocalCUDACluster
+        DASK_CUDA_AVAILABLE = True
+    except ImportError:
+        LocalCUDACluster = None
+        DASK_CUDA_AVAILABLE = False
+        print("警告: 未找到dask-cuda库，将使用标准Dask集群")
+    from xgboost import dask as dxgb
+    DASK_AVAILABLE = True
+    print("成功导入Dask和XGBoost分布式训练相关库")
+except ImportError as e:
+    DASK_AVAILABLE = False
+    DASK_CUDA_AVAILABLE = False
+    print(f"警告: 无法导入Dask相关库: {e}")
+    print("将使用标准XGBoost训练")
+
 ## 参数搜索和评价的
 from sklearn.model_selection import GridSearchCV,cross_val_score,StratifiedKFold,train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, accuracy_score, classification_report
@@ -563,8 +585,122 @@ xgr = xgb.XGBClassifier(
 )
 
 # 使用 SMOTE 平衡后的数据训练
-xgr.fit(X_train_resampled, y_train_resampled)
-y_pred = xgr.predict(X_test)
+def train_with_dask_xgboost(client, X_train, y_train, X_test, y_test):
+    """使用Dask XGBoost进行分布式训练"""
+    if not DASK_AVAILABLE or client is None:
+        print("Dask不可用，使用标准XGBoost训练")
+        # 使用标准XGBoost训练
+        xgr = xgb.XGBClassifier(
+            learning_rate=0.01,         # 最佳学习率
+            n_estimators=1000,          # 最佳树数量
+            max_depth=8,                # 适当增加深度
+            min_child_weight=3,         # 增加子节点最小权重
+            gamma=0.1,                  # 增加正则化
+            subsample=0.7,              # 减少样本采样比例
+            colsample_bytree=0.7,       # 减少特征采样比例
+            objective='multi:softmax',
+            eval_metric='mlogloss',     # 显式指定评估指标，避免警告
+            random_state=27,
+            tree_method='gpu_hist',     # 使用GPU加速
+            predictor='gpu_predictor',   # 使用GPU进行预测
+            use_label_encoder=False     # 避免标签编码器警告
+        )
+        xgr.fit(X_train, y_train)
+        y_pred = xgr.predict(X_test)
+        return xgr, y_pred
+    
+    try:
+        print("开始使用Dask XGBoost进行分布式训练...")
+        
+        # 将pandas数据转换为Dask数据格式
+        X_train_dask = dd.from_pandas(X_train, npartitions=4)
+        y_train_dask = dd.from_pandas(y_train, npartitions=4)
+        X_test_dask = dd.from_pandas(X_test, npartitions=4)
+        
+        # 创建DaskDMatrix
+        dtrain = dxgb.DaskDMatrix(client, X_train_dask, y_train_dask)
+        
+        # 设置XGBoost参数，启用GPU加速
+        params = {
+            'objective': 'multi:softmax',
+            'num_class': len(y_train.unique()),
+            'tree_method': 'hist',      # 使用histogram算法
+            'device': 'cuda',           # 启用GPU
+            'eval_metric': 'mlogloss',
+            'learning_rate': 0.01,
+            'max_depth': 8,
+            'min_child_weight': 3,
+            'gamma': 0.1,
+            'subsample': 0.7,
+            'colsample_bytree': 0.7,
+            'random_state': 27
+        }
+        
+        # 记录训练开始时间
+        start_time = time.time()
+        
+        # 执行分布式训练
+        output = dxgb.train(
+            client,
+            params,
+            dtrain,
+            num_boost_round=1000,  # 树的数量
+            evals=[(dtrain, 'train')]
+        )
+        
+        # 获取训练好的模型
+        booster = output['booster']
+        
+        # 记录训练结束时间
+        end_time = time.time()
+        training_time = end_time - start_time
+        print(f"Dask XGBoost训练完成，耗时: {training_time:.2f}秒")
+        
+        # 进行预测
+        y_pred = dxgb.predict(client, booster, X_test_dask).compute()
+        
+        return booster, y_pred
+        
+    except Exception as e:
+        print(f"使用Dask XGBoost训练时出错: {e}")
+        return None, None
+
+# 创建Dask集群
+client, cluster = setup_dask_cluster()
+
+# 使用Dask XGBoost训练模型
+xgr, y_pred = train_with_dask_xgboost(client, X_train_resampled, y_train_resampled, X_test, y_test)
+
+# 关闭Dask集群
+if client is not None:
+    client.close()
+if cluster is not None:
+    cluster.close()
+
+# 创建Dask集群用于分布式训练
+def setup_dask_cluster():
+    """设置Dask集群用于分布式训练"""
+    if not DASK_AVAILABLE:
+        print("Dask不可用，使用标准XGBoost训练")
+        return None, None
+    
+    try:
+        if DASK_CUDA_AVAILABLE and LocalCUDACluster is not None:
+            # 创建本地CUDA集群，使用所有可用的GPU
+            cluster = LocalCUDACluster(n_workers=2, threads_per_worker=1)
+            print("使用CUDA集群进行多GPU训练")
+        else:
+            # 使用标准本地集群作为回退方案
+            cluster = LocalCluster(n_workers=2, threads_per_worker=2)
+            print("使用标准集群进行训练")
+        
+        client = Client(cluster)
+        print(f"成功创建Dask集群: {cluster}")
+        print(f"客户端连接: {client}")
+        return client, cluster
+    except Exception as e:
+        print(f"创建Dask集群时出错: {e}")
+        return None, None
 
 # 计算所有特征的IV值
 print("\n========== 特征IV值分析 ==========")
@@ -582,6 +718,96 @@ print(feature_importance_df_xgb.head(20))
 
 # 添加第三组参数调优代码
 print("\n========== XGBoost第三组参数调优 ==========")
+
+# 使用Dask进行参数调优的函数
+def tune_with_dask_xgboost(X_train, y_train):
+    """使用Dask XGBoost进行参数调优"""
+    if not DASK_AVAILABLE:
+        print("Dask不可用，使用标准参数调优")
+        return None
+    
+    try:
+        # 创建Dask集群
+        client, cluster = setup_dask_cluster()
+        if client is None or cluster is None:
+            print("无法创建Dask集群，使用标准参数调优")
+            return None
+        
+        print("开始使用Dask XGBoost进行参数调优...")
+        
+        # 将pandas数据转换为Dask数据格式
+        X_train_dask = dd.from_pandas(X_train, npartitions=4)
+        y_train_dask = dd.from_pandas(y_train, npartitions=4)
+        
+        # 创建DaskDMatrix
+        dtrain = dxgb.DaskDMatrix(client, X_train_dask, y_train_dask)
+        
+        # 第三组参数调优：gamma, subsample, colsample_bytree
+        param_grid_3 = {
+            'gamma': [0, 0.1, 0.2, 0.3, 0.4],
+            'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+            'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0]
+        }
+        
+        # 设置XGBoost参数
+        params = {
+            'objective': 'multi:softmax',
+            'num_class': len(y_train.unique()),
+            'tree_method': 'hist',
+            'device': 'cuda',
+            'eval_metric': 'mlogloss',
+            'learning_rate': 0.01,
+            'max_depth': 6,
+            'min_child_weight': 1,
+            'random_state': 27
+        }
+        
+        # 由于参数组合较多，我们使用更小的样本进行调优以节省时间
+        # 使用10%的训练数据进行快速调优
+        sample_size = int(0.1 * len(X_train))
+        X_train_sample = X_train[:sample_size]
+        y_train_sample = y_train[:sample_size]
+        
+        # 创建基础模型用于调优
+        xgb_base_3 = xgb.XGBClassifier(
+            learning_rate=0.01,
+            n_estimators=1000,
+            max_depth=6,
+            min_child_weight=1,
+            objective='multi:softmax',
+            eval_metric='mlogloss',
+            random_state=27,
+            tree_method='gpu_hist',
+            predictor='gpu_predictor',
+            use_label_encoder=False
+        )
+        
+        # 执行网格搜索
+        print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
+        grid_search_3 = GridSearchCV(
+            estimator=xgb_base_3,
+            param_grid=param_grid_3,
+            scoring='f1_macro',
+            cv=3,
+            n_jobs=-1,
+            verbose=1
+        )
+        
+        grid_search_3.fit(X_train_sample, y_train_sample)
+        
+        print("第三组参数调优完成!")
+        print(f"最佳参数: {grid_search_3.best_params_}")
+        print(f"最佳得分: {grid_search_3.best_score_:.4f}")
+        
+        # 关闭Dask集群
+        client.close()
+        cluster.close()
+        
+        return grid_search_3
+        
+    except Exception as e:
+        print(f"使用Dask XGBoost进行参数调优时出错: {e}")
+        return None
 
 # 第三组参数调优：gamma, subsample, colsample_bytree
 param_grid_3 = {
@@ -604,24 +830,30 @@ xgb_base_3 = xgb.XGBClassifier(
     use_label_encoder=False     # 避免标签编码器警告
 )
 
-# 执行网格搜索
-print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
-grid_search_3 = GridSearchCV(
-    estimator=xgb_base_3,
-    param_grid=param_grid_3,
-    scoring='f1_macro',  # 使用F1分数作为评估指标
-    cv=3,  # 3折交叉验证
-    n_jobs=-1,  # 使用所有CPU核心
-    verbose=1
-)
+# 尝试使用Dask进行参数调优，如果失败则回退到标准方法
+grid_search_3 = tune_with_dask_xgboost(X_train_resampled, y_train_resampled)
 
-# 由于参数组合较多，我们使用更小的样本进行调优以节省时间
-# 使用10%的训练数据进行快速调优
-sample_size = int(0.1 * len(X_train_resampled))
-X_train_sample = X_train_resampled[:sample_size]
-y_train_sample = y_train_resampled[:sample_size]
+if grid_search_3 is None:
+    # 回退到标准参数调优方法
+    print("回退到标准参数调优方法")
+    # 执行网格搜索
+    print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
+    grid_search_3 = GridSearchCV(
+        estimator=xgb_base_3,
+        param_grid=param_grid_3,
+        scoring='f1_macro',  # 使用F1分数作为评估指标
+        cv=3,  # 3折交叉验证
+        n_jobs=-1,  # 使用所有CPU核心
+        verbose=1
+    )
 
-grid_search_3.fit(X_train_sample, y_train_sample)
+    # 由于参数组合较多，我们使用更小的样本进行调优以节省时间
+    # 使用10%的训练数据进行快速调优
+    sample_size = int(0.1 * len(X_train_resampled))
+    X_train_sample = X_train_resampled[:sample_size]
+    y_train_sample = y_train_resampled[:sample_size]
+
+    grid_search_3.fit(X_train_sample, y_train_sample)
 
 print("第三组参数调优完成!")
 print(f"最佳参数: {grid_search_3.best_params_}")
