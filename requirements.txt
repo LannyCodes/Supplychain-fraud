@@ -21,7 +21,7 @@ scikit-learn>=1.0.0
 
 # 分布式计算框架
 dask>=2021.0.0
-dask-cuda>=2021.0.0  # 用于GPU加速的分布式计算（可选）
+dask-cuda  # 用于GPU加速的分布式计算（可选）
 
 # 梯度提升算法
 lightgbm>=3.3.0
