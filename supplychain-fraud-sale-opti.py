@@ -650,6 +650,31 @@ xgb_base_3 = xgb.XGBClassifier(
 # 尝试使用Dask进行参数调优，如果失败则回退到标准方法
 grid_search_3 = None
 
+# 添加Dask集群设置函数
+def setup_dask_cluster():
+    """设置Dask集群用于分布式训练"""
+    if not DASK_AVAILABLE:
+        print("Dask不可用，使用标准XGBoost训练")
+        return None, None
+    
+    try:
+        if DASK_CUDA_AVAILABLE and LocalCUDACluster is not None:
+            # 创建本地CUDA集群，使用所有可用的GPU
+            cluster = LocalCUDACluster(n_workers=2, threads_per_worker=1)
+            print("使用CUDA集群进行多GPU训练")
+        else:
+            # 使用标准本地集群作为回退方案
+            cluster = LocalCluster(n_workers=2, threads_per_worker=2)
+            print("使用标准集群进行训练")
+        
+        client = Client(cluster)
+        print(f"成功创建Dask集群: {cluster}")
+        print(f"客户端连接: {client}")
+        return client, cluster
+    except Exception as e:
+        print(f"创建Dask集群时出错: {e}")
+        return None, None
+
 # 只有在确实需要使用Dask时才创建集群
 if DASK_AVAILABLE:
     try:
