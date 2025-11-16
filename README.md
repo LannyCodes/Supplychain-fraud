@@ -94,6 +94,47 @@ Random Forest和LightGBM也展现出强劲性能。通过GPU加速，XGBoost、L
 - 最佳参数：reg_alpha=0, reg_lambda=0
 - 最佳得分：0.4745
 
+## 网格搜索代码实现
+
+网格搜索使用scikit-learn的GridSearchCV实现，以下是核心代码示例：
+
+```python
+# 第一轮参数调优示例
+param_grid_1 = {
+    'learning_rate': [0.01, 0.05, 0.1, 0.2],
+    'n_estimators': [1000, 1500, 2000, 2500]
+}
+
+# 创建基础模型
+xgb_base_1 = xgb.XGBClassifier(
+    objective='multi:softmax',
+    eval_metric='mlogloss',
+    random_state=27,
+    tree_method='gpu_hist',
+    predictor='gpu_predictor',
+    use_label_encoder=False
+)
+
+# 网格搜索
+grid_search_1 = GridSearchCV(
+    estimator=xgb_base_1,
+    param_grid=param_grid_1,
+    scoring='f1_macro',
+    cv=3,
+    n_jobs=1,
+    verbose=1
+)
+
+# 执行搜索
+grid_search_1.fit(X_train_resampled, y_train_resampled)
+
+# 获取最佳参数
+best_params_1 = grid_search_1.best_params_
+best_score_1 = grid_search_1.best_score_
+```
+
+根据项目规范，在资源受限环境（如Kaggle）中，每组参数组合控制在3个以内，避免过多组合导致执行缓慢或超时。在完成参数调优并确定最佳参数后，代码中直接使用具体参数值，而非引用grid_search.best_params_，以提高代码可读性和执行效率。
+
 ## 多GPU使用过程
 
 项目最初尝试使用XGBoost的分布式训练功能来提升多GPU训练速度：
