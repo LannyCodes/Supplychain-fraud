@@ -92,27 +92,11 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 import lightgbm as lgb
 import xgboost as xgb
 
-# 尝试导入Dask相关库用于分布式训练
-try:
-    import dask
-    import dask.dataframe as dd
-    from dask.distributed import Client, LocalCluster
-    # 尝试导入LocalCUDACluster，如果失败则使用替代方案
-    try:
-        from dask_cuda import LocalCUDACluster
-        DASK_CUDA_AVAILABLE = True
-    except ImportError:
-        LocalCUDACluster = None
-        DASK_CUDA_AVAILABLE = False
-        print("警告: 未找到dask-cuda库，将使用标准Dask集群")
-    from xgboost import dask as dxgb
-    DASK_AVAILABLE = True
-    print("成功导入Dask和XGBoost分布式训练相关库")
-except ImportError as e:
-    DASK_AVAILABLE = False
-    DASK_CUDA_AVAILABLE = False
-    print(f"警告: 无法导入Dask相关库: {e}")
-    print("将使用标准XGBoost训练")
+# 移除Dask相关库导入，因为Kaggle环境不支持分布式计算
+# 将DASK_AVAILABLE和DASK_CUDA_AVAILABLE设置为False
+DASK_AVAILABLE = False
+DASK_CUDA_AVAILABLE = False
+print("Dask分布式计算已禁用，将使用标准XGBoost训练")
 
 ## 参数搜索和评价的
 from sklearn.model_selection import GridSearchCV,cross_val_score,StratifiedKFold,train_test_split
