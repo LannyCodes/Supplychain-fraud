@@ -631,8 +631,8 @@ print("使用第二组最佳参数重新训练模型...")
 xgr_optimized_2 = xgb.XGBClassifier(
     learning_rate=0.01,         # 第一组调优得到的最佳学习率
     n_estimators=1000,          # 第一组调优得到的最佳树数量
-    max_depth=grid_search_2.best_params_['max_depth'],
-    min_child_weight=grid_search_2.best_params_['min_child_weight'],
+    max_depth=6,                # 直接使用最佳参数值
+    min_child_weight=1,         # 直接使用最佳参数值
     gamma=0.1,
     subsample=0.7,
     colsample_bytree=0.7,
@@ -645,6 +645,91 @@ xgr_optimized_2 = xgb.XGBClassifier(
 
 xgr_optimized_2.fit(X_train_resampled, y_train_resampled)
 y_pred_optimized_2 = xgr_optimized_2.predict(X_test)
+
+# 评估第二组参数调优后的模型性能
+print("\n========== 第二组参数调优后模型评估 ==========")
+# 转换为二分类标签
+y_test_2_eval = y_test.apply(lambda x : 1 if x ==8 else 0).copy()
+y_pred_2_eval = pd.Series(y_pred_optimized_2).apply(lambda x : 1 if x ==8 else 0).copy()
+
+# 混淆矩阵
+m_eval = confusion_matrix(y_test_2_eval, y_pred_2_eval)
+print('\n混淆矩阵：')
+print(m_eval)
+
+# 准确率
+print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2_eval, y_pred_2_eval):.4f}")
+
+# 精确率、召回率、F1分数（针对欺诈类别）
+print(f"精确率 (Precision): {precision_score(y_test_2_eval, y_pred_2_eval):.4f}")
+print(f"召回率 (Recall): {recall_score(y_test_2_eval, y_pred_2_eval):.4f}")
+print(f"F1分数 (F1-Score): {f1_score(y_test_2_eval, y_pred_2_eval):.4f}")
+
+# 添加第三组参数调优代码
+print("\n========== XGBoost第三组参数调优 ==========")
+
+# 第三组参数调优：gamma, subsample, colsample_bytree
+param_grid_3 = {
+    'gamma': [0, 0.1, 0.2, 0.3, 0.4],
+    'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+    'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0]
+}
+
+# 创建基础模型用于调优（使用前两组调优得到的最佳参数）
+xgb_base_3 = xgb.XGBClassifier(
+    learning_rate=0.01,         # 第一组调优得到的最佳学习率
+    n_estimators=1000,          # 第一组调优得到的最佳树数量
+    max_depth=6,                # 直接使用最佳参数值
+    min_child_weight=1,         # 直接使用最佳参数值
+    objective='multi:softmax',
+    eval_metric='mlogloss',
+    random_state=27,
+    tree_method='gpu_hist',
+    predictor='gpu_predictor'
+)
+
+# 执行网格搜索
+print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
+grid_search_3 = GridSearchCV(
+    estimator=xgb_base_3,
+    param_grid=param_grid_3,
+    scoring='f1_macro',  # 使用F1分数作为评估指标
+    cv=3,  # 3折交叉验证
+    n_jobs=-1,  # 使用所有CPU核心
+    verbose=1
+)
+
+# 由于参数组合较多，我们使用更小的样本进行调优以节省时间
+# 使用10%的训练数据进行快速调优
+sample_size = int(0.1 * len(X_train_resampled))
+X_train_sample = X_train_resampled[:sample_size]
+y_train_sample = y_train_resampled[:sample_size]
+
+grid_search_3.fit(X_train_sample, y_train_sample)
+
+print("第三组参数调优完成!")
+print(f"最佳参数: {grid_search_3.best_params_}")
+print(f"最佳得分: {grid_search_3.best_score_:.4f}")
+
+# 使用最佳参数重新训练模型
+print("使用第三组最佳参数重新训练模型...")
+xgr_optimized_3 = xgb.XGBClassifier(
+    learning_rate=0.01,         # 第一组调优得到的最佳学习率
+    n_estimators=1000,          # 第一组调优得到的最佳树数量
+    max_depth=6,                # 直接使用最佳参数值
+    min_child_weight=1,         # 直接使用最佳参数值
+    gamma=grid_search_3.best_params_['gamma'],
+    subsample=grid_search_3.best_params_['subsample'],
+    colsample_bytree=grid_search_3.best_params_['colsample_bytree'],
+    objective='multi:softmax',
+    eval_metric='mlogloss',
+    random_state=27,
+    tree_method='gpu_hist',
+    predictor='gpu_predictor'
+)
+
+xgr_optimized_3.fit(X_train_resampled, y_train_resampled)
+y_pred_optimized_3 = xgr_optimized_3.predict(X_test)
 
 # 打印前3个最重要特征的取值分布
 print("\n========== 前3个最重要特征的取值分布 ==========")
@@ -710,7 +795,7 @@ for feature in top_3_features:
 
 ### plot feature importance
 fig,ax = plt.subplots(figsize=(15,15))
-xgb.plot_importance(xgr_optimized_2,
+xgb.plot_importance(xgr_optimized_3,
                 height=0.5,
                 ax=ax,
                 max_num_features=64)
@@ -722,8 +807,8 @@ y_test_2 = y_test.apply(lambda x : 1 if x ==8 else 0).copy()
 y_test_2.value_counts()
 
 # # 转换为二分类标签
-display( pd.Series(y_pred_optimized_2).value_counts() )
-y_pred_2 = pd.Series(y_pred_optimized_2).apply(lambda x : 1 if x ==8 else 0).copy()
+display( pd.Series(y_pred_optimized_3).value_counts() )
+y_pred_2 = pd.Series(y_pred_optimized_3).apply(lambda x : 1 if x ==8 else 0).copy()
 pd.Series(y_pred_2).value_counts()
 
 # 混淆矩阵
@@ -750,12 +835,12 @@ try:
     y_proba_fraud = None
     
     # 针对不同模型获取欺诈类别的概率
-    if hasattr(xgr_optimized_2, "predict_proba"):
-        y_proba = xgr_optimized_2.predict_proba(X_test)
+    if hasattr(xgr_optimized_3, "predict_proba"):
+        y_proba = xgr_optimized_3.predict_proba(X_test)
         # 对于多分类问题，我们需要转换为二分类概率
         # 获取欺诈类别（标签8）的概率
-        if hasattr(xgr_optimized_2, "classes_"):
-            fraud_class_index = list(xgr_optimized_2.classes_).index(8) if 8 in xgr_optimized_2.classes_ else -1
+        if hasattr(xgr_optimized_3, "classes_"):
+            fraud_class_index = list(xgr_optimized_3.classes_).index(8) if 8 in xgr_optimized_3.classes_ else -1
             if fraud_class_index >= 0:
                 y_proba_fraud = y_proba[:, fraud_class_index]
     
