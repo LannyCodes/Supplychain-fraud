@@ -603,115 +603,68 @@ param_grid_3 = {
 }
 
 # 创建基础模型用于调优（使用前两组调优得到的最佳参数）
-xgb_base_3 = xgb.XGBClassifier(
-    learning_rate=0.01,         # 第一组调优得到的最佳学习率
-    n_estimators=1000,          # 第一组调优得到的最佳树数量
-    max_depth=6,                # 直接使用最佳参数值
-    min_child_weight=1,         # 直接使用最佳参数值
-    objective='multi:softmax',
-    eval_metric='mlogloss',
-    random_state=27,
-    tree_method='gpu_hist',
-    predictor='gpu_predictor',
-    use_label_encoder=False     # 避免标签编码器警告
-)
+# xgb_base_3 = xgb.XGBClassifier(
+#     learning_rate=0.01,         # 第一组调优得到的最佳学习率
+#     n_estimators=1000,          # 第一组调优得到的最佳树数量
+#     max_depth=6,                # 直接使用最佳参数值
+#     min_child_weight=1,         # 直接使用最佳参数值
+#     objective='multi:softmax',
+#     eval_metric='mlogloss',
+#     random_state=27,
+#     tree_method='gpu_hist',
+#     predictor='gpu_predictor',
+#     use_label_encoder=False     # 避免标签编码器警告
+# )
 
 # 直接使用标准参数调优方法，移除Dask集群相关代码
 print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
-grid_search_3 = GridSearchCV(
-    estimator=xgb_base_3,
-    param_grid=param_grid_3,
-    scoring='f1_macro',  # 使用F1分数作为评估指标
-    cv=3,  # 3折交叉验证
-    n_jobs=1,  # 限制并行任务数量以避免资源竞争
-    verbose=1
-)
-
-# 由于参数组合较少，我们使用更小的样本进行调优以节省时间
-# 使用10%的训练数据进行快速调优
-sample_size = int(0.1 * len(X_train_resampled))
-X_train_sample = X_train_resampled[:sample_size]
-y_train_sample = y_train_resampled[:sample_size]
-
-grid_search_3.fit(X_train_sample, y_train_sample)
-
-print("第三组参数调优完成!")
-print(f"最佳参数: {grid_search_3.best_params_}")
-print(f"最佳得分: {grid_search_3.best_score_:.4f}")
+# grid_search_3 = GridSearchCV(
+#     estimator=xgb_base_3,
+#     param_grid=param_grid_3,
+#     scoring='f1_macro',  # 使用F1分数作为评估指标
+#     cv=3,  # 3折交叉验证
+#     n_jobs=1,  # 限制并行任务数量以避免资源竞争
+#     verbose=1
+# )
+# 
+# # 由于参数组合较少，我们使用更小的样本进行调优以节省时间
+# # 使用10%的训练数据进行快速调优
+# sample_size = int(0.1 * len(X_train_resampled))
+# X_train_sample = X_train_resampled[:sample_size]
+# y_train_sample = y_train_resampled[:sample_size]
+# 
+# grid_search_3.fit(X_train_sample, y_train_sample)
+# 
+# print("第三组参数调优完成!")
+# print(f"最佳参数: {grid_search_3.best_params_}")
+# print(f"最佳得分: {grid_search_3.best_score_:.4f}")
 
 # 使用最佳参数重新训练模型
 print("使用第三组最佳参数重新训练模型...")
-xgr_optimized_3 = xgb.XGBClassifier(
-    learning_rate=0.01,         # 第一组调优得到的最佳学习率
-    n_estimators=1000,          # 第一组调优得到的最佳树数量
-    max_depth=6,                # 直接使用最佳参数值
-    min_child_weight=1,         # 直接使用最佳参数值
-    gamma=0,                    # 第三组调优得到的最佳参数
-    subsample=0.6,              # 第三组调优得到的最佳参数
-    colsample_bytree=0.6,       # 第三组调优得到的最佳参数
-    objective='multi:softmax',
-    eval_metric='mlogloss',
-    random_state=27,
-    tree_method='gpu_hist',
-    predictor='gpu_predictor',
-    use_label_encoder=False     # 避免标签编码器警告
-)
+# xgr_optimized_3 = xgb.XGBClassifier(
+#     learning_rate=0.01,         # 第一组调优得到的最佳学习率
+#     n_estimators=1000,          # 第一组调优得到的最佳树数量
+#     max_depth=6,                # 直接使用最佳参数值
+#     min_child_weight=1,         # 直接使用最佳参数值
+#     gamma=0,                    # 第三组调优得到的最佳参数
+#     subsample=0.6,              # 第三组调优得到的最佳参数
+#     colsample_bytree=0.6,       # 第三组调优得到的最佳参数
+#     objective='multi:softmax',
+#     eval_metric='mlogloss',
+#     random_state=27,
+#     tree_method='gpu_hist',
+#     predictor='gpu_predictor',
+#     use_label_encoder=False     # 避免标签编码器警告
+# )
 
-xgr_optimized_3.fit(X_train_resampled, y_train_resampled)
-y_pred_optimized_3 = xgr_optimized_3.predict(X_test)
+# xgr_optimized_3.fit(X_train_resampled, y_train_resampled)
+# y_pred_optimized_3 = xgr_optimized_3.predict(X_test)
 
-# 第四组参数调优：reg_alpha, reg_lambda
-print("\n========== XGBoost第四组参数调优 ==========")
+# 直接使用已经调优好的参数模型进行阈值调优
+# 使用已确定的最佳参数直接创建第四组模型，移除参数调优部分以提高效率
+print("\n========== XGBoost第四组模型训练 ==========")
 
-# 第四组参数调优：reg_alpha, reg_lambda
-# 简化参数组合，只使用3组参数以提高速度
-param_grid_4 = {
-    'reg_alpha': [0, 0.1, 1],
-    'reg_lambda': [0, 0.1, 1]
-}
-
-# 创建基础模型用于调优（使用前三组调优得到的最佳参数）
-xgb_base_4 = xgb.XGBClassifier(
-    learning_rate=0.01,         # 第一组调优得到的最佳学习率
-    n_estimators=1000,          # 第一组调优得到的最佳树数量
-    max_depth=6,                # 第二组调优得到的最佳参数
-    min_child_weight=1,         # 第二组调优得到的最佳参数
-    gamma=0,                    # 第三组调优得到的最佳参数
-    subsample=0.6,              # 第三组调优得到的最佳参数
-    colsample_bytree=0.6,       # 第三组调优得到的最佳参数
-    objective='multi:softmax',
-    eval_metric='mlogloss',
-    random_state=27,
-    tree_method='gpu_hist',
-    predictor='gpu_predictor',
-    use_label_encoder=False     # 避免标签编码器警告
-)
-
-# 直接使用标准参数调优方法
-print("执行第四组参数调优 (reg_alpha, reg_lambda)...")
-grid_search_4 = GridSearchCV(
-    estimator=xgb_base_4,
-    param_grid=param_grid_4,
-    scoring='f1_macro',  # 使用F1分数作为评估指标
-    cv=3,  # 3折交叉验证
-    n_jobs=1,  # 限制并行任务数量以避免资源竞争
-    verbose=1
-)
-
-# 由于参数组合较少，我们使用更小的样本进行调优以节省时间
-# 使用10%的训练数据进行快速调优
-sample_size = int(0.1 * len(X_train_resampled))
-X_train_sample = X_train_resampled[:sample_size]
-y_train_sample = y_train_resampled[:sample_size]
-
-grid_search_4.fit(X_train_sample, y_train_sample)
-
-print("第四组参数调优完成!")
-print(f"最佳参数: {grid_search_4.best_params_}")
-print(f"最佳得分: {grid_search_4.best_score_:.4f}")
-
-# 使用最佳参数重新训练模型
-print("使用第四组最佳参数重新训练模型...")
+# 直接使用所有已确定的最佳参数创建最终模型
 xgr_optimized_4 = xgb.XGBClassifier(
     learning_rate=0.01,         # 第一组调优得到的最佳学习率
     n_estimators=1000,          # 第一组调优得到的最佳树数量
@@ -730,6 +683,7 @@ xgr_optimized_4 = xgb.XGBClassifier(
     use_label_encoder=False     # 避免标签编码器警告
 )
 
+print("使用所有最佳参数训练最终模型...")
 xgr_optimized_4.fit(X_train_resampled, y_train_resampled)
 y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
 
@@ -899,8 +853,8 @@ if y_proba_fraud is not None:
     y_pred_default = (y_proba_fraud >= 0.5).astype(int)
     
     print("默认阈值(0.5) vs 最佳阈值对比:")
-    print(f"默认阈값 - 精确率: {precision_score(y_test_binary_auc, y_pred_default):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_default):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_default):.4f}")
-    print(f"最佳阈값 - 精确率: {precision_score(y_test_binary_auc, y_pred_best):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_best):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_best):.4f}")
+    print(f"默认阈值 - 精确率: {precision_score(y_test_binary_auc, y_pred_default):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_default):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_default):.4f}")
+    print(f"最佳阈值 - 精确率: {precision_score(y_test_binary_auc, y_pred_best):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_best):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_best):.4f}")
     
     # 可视化精确率-召回率曲线
     plt.figure(figsize=(10, 6))
@@ -920,7 +874,7 @@ if y_proba_fraud is not None:
     threshold_candidates.append(best_threshold)
     threshold_candidates = sorted(list(set(threshold_candidates)))  # 去重并排序
     
-    print("阈값\t精确率\t召回率\tF1分数")
+    print("阈值\t精确率\t召回率\tF1分数")
     for threshold in threshold_candidates:
         y_pred_temp = (y_proba_fraud >= threshold).astype(int)
         prec = precision_score(y_test_binary_auc, y_pred_temp)
