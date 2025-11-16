@@ -597,9 +597,9 @@ print("\n========== XGBoost第三组参数调优 ==========")
 # 第三组参数调优：gamma, subsample, colsample_bytree
 # 简化参数组合，只使用3组参数以提高速度
 param_grid_3 = {
-    'gamma': [0, 0.2, 0.4],
-    'subsample': [0.6, 0.8, 1.0],
-    'colsample_bytree': [0.6, 0.8, 1.0]
+    'gamma': [0, 0.4],
+    'subsample': [0.6, 1.0],
+    'colsample_bytree': [0.6, 1.0]
 }
 
 # 创建基础模型用于调优（使用前两组调优得到的最佳参数）
