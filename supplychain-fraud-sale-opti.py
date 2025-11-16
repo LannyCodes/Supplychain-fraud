@@ -552,55 +552,22 @@ print('\n========== XGBClassifier 模型评估 ==========')
 
 #XGBClassifier 
 # 使用第一组参数调优得到的最佳参数
-xgr = xgb.XGBClassifier(
-    learning_rate=0.01,         # 最佳学习率
-    n_estimators=1000,          # 最佳树数量
-    max_depth=8,                # 适当增加深度
-    min_child_weight=3,         # 增加子节点最小权重
-    gamma=0.1,                  # 增加正则化
-    subsample=0.7,              # 减少样本采样比例
-    colsample_bytree=0.7,       # 减少特征采样比例
-    objective='multi:softmax',
-    eval_metric='mlogloss',     # 显式指定评估指标，避免警告
-    random_state=27,
-    tree_method='gpu_hist',     # 使用GPU加速
-    predictor='gpu_predictor',   # 使用GPU进行预测
-    use_label_encoder=False     # 避免标签编码器警告
-)
 
 # 首先使用标准XGBoost训练模型，避免因Dask集群创建问题导致卡住
-print("开始训练XGBoost模型...")
-xgr.fit(X_train_resampled, y_train_resampled)
-print("XGBoost模型训练完成")
 
 # 进行预测
-y_pred = xgr.predict(X_test)
-print("模型预测完成")
 
 # 计算所有特征的IV值
-print("\n========== 特征IV值分析 ==========")
-iv_df = calculate_all_features_iv(X_train, y_train, top_n=20)
 
 # 打印特征重要性
-print("\n特征重要性 (XGBoost):")
-feature_importance_xgb = xgr.feature_importances_
-feature_names = X_train.columns
-feature_importance_df_xgb = pd.DataFrame({
-    'feature': feature_names,
-    'importance': feature_importance_xgb
-}).sort_values(by='importance', ascending=False)
-print(feature_importance_df_xgb.head(20))
+
+# 特征IV值分析和特征重要性评估将放到第四组调优后的模型中进行
 
 # 添加第三组参数调优代码
 print("\n========== XGBoost第三组参数调优 ==========")
 
 # 第三组参数调优：gamma, subsample, colsample_bytree
 # 简化参数组合，只使用3组参数以提高速度
-param_grid_3 = {
-    'gamma': [0, 0.2, 0.4],
-    'subsample': [0.6, 0.8, 1.0],
-    'colsample_bytree': [0.6, 0.8, 1.0]
-}
 
 # 创建基础模型用于调优（使用前两组调优得到的最佳参数）
 # xgb_base_3 = xgb.XGBClassifier(
@@ -686,6 +653,20 @@ xgr_optimized_4 = xgb.XGBClassifier(
 print("使用所有最佳参数训练最终模型...")
 xgr_optimized_4.fit(X_train_resampled, y_train_resampled)
 y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
+
+# 计算所有特征的IV值
+print("\n========== 特征IV值分析 ==========")
+iv_df = calculate_all_features_iv(X_train, y_train, top_n=20)
+
+# 打印特征重要性
+print("\n特征重要性 (XGBoost):")
+feature_importance_xgb = xgr_optimized_4.feature_importances_
+feature_names = X_train.columns
+feature_importance_df_xgb = pd.DataFrame({
+    'feature': feature_names,
+    'importance': feature_importance_xgb
+}).sort_values(by='importance', ascending=False)
+print(feature_importance_df_xgb.head(20))
 
 # 打印前3个最重要特征的取值分布
 print("\n========== 前3个最重要特征的取值分布 ==========")
@@ -887,3 +868,9 @@ else:
 
 # 结束程序
 print("\n========== 模型优化完成 ==========")
+
+
+# 把准确率: 97.95%
+# 精确率: 52.37%
+# 召回率: 100.00%
+# F1分数: 68.74%
