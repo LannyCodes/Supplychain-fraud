@@ -720,8 +720,8 @@ xgr_optimized_4 = xgb.XGBClassifier(
     gamma=0,                    # 第三组调优得到的最佳参数
     subsample=0.6,              # 第三组调优得到的最佳参数
     colsample_bytree=0.6,       # 第三组调优得到的最佳参数
-    reg_alpha=grid_search_4.best_params_['reg_alpha'],
-    reg_lambda=grid_search_4.best_params_['reg_lambda'],
+    reg_alpha=0,                # 第四组调优得到的最佳参数
+    reg_lambda=0,               # 第四组调优得到的最佳参数
     objective='multi:softmax',
     eval_metric='mlogloss',
     random_state=27,
@@ -858,3 +858,78 @@ try:
         
 except Exception as e:
     print(f"计算AUC指标时出错: {e}")
+
+# 添加阈值调整功能以平衡精确率和召回率
+print("\n========== 阈值调整优化 ==========")
+if y_proba_fraud is not None:
+    from sklearn.metrics import precision_recall_curve
+    
+    # 计算精确率、召回率和阈值
+    precision, recall, thresholds = precision_recall_curve(y_test_binary_auc, y_proba_fraud)
+    
+    # 计算F1分数
+    f1_scores = 2 * (precision * recall) / (precision + recall)
+    f1_scores = np.nan_to_num(f1_scores)  # 处理除零情况
+    
+    # 找到最佳阈值
+    best_threshold_idx = np.argmax(f1_scores)
+    best_threshold = thresholds[best_threshold_idx]
+    best_f1 = f1_scores[best_threshold_idx]
+    
+    print(f"基于F1分数的最佳阈值: {best_threshold:.4f}")
+    print(f"对应的F1分数: {best_f1:.4f}")
+    
+    # 使用最佳阈值进行预测
+    y_pred_best = (y_proba_fraud >= best_threshold).astype(int)
+    
+    # 计算使用最佳阈值的指标
+    print(f"\n使用最佳阈值 {best_threshold:.4f} 的评估结果:")
+    print(f"准确率 (Accuracy): {accuracy_score(y_test_binary_auc, y_pred_best):.4f}")
+    print(f"精确率 (Precision): {precision_score(y_test_binary_auc, y_pred_best):.4f}")
+    print(f"召回率 (Recall): {recall_score(y_test_binary_auc, y_pred_best):.4f}")
+    print(f"F1分数 (F1-Score): {f1_score(y_test_binary_auc, y_pred_best):.4f}")
+    
+    # 混淆矩阵
+    m_best = confusion_matrix(y_test_binary_auc, y_pred_best)
+    print('\n混淆矩阵（最佳阈值）：')
+    print(m_best)
+    
+    # 与原始阈值(0.5)的对比
+    print(f"\n========== 阈值调整对比 ==========")
+    y_pred_default = (y_proba_fraud >= 0.5).astype(int)
+    
+    print("默认阈值(0.5) vs 最佳阈值对比:")
+    print(f"默认阈값 - 精确率: {precision_score(y_test_binary_auc, y_pred_default):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_default):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_default):.4f}")
+    print(f"最佳阈값 - 精确率: {precision_score(y_test_binary_auc, y_pred_best):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_best):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_best):.4f}")
+    
+    # 可视化精确率-召回率曲线
+    plt.figure(figsize=(10, 6))
+    plt.plot(recall, precision, marker='.', label='Precision-Recall曲线')
+    plt.plot(recall[best_threshold_idx], precision[best_threshold_idx], 'ro', markersize=10, label=f'最佳F1点 (阈值={best_threshold:.3f})')
+    plt.xlabel('召回率 (Recall)')
+    plt.ylabel('精确率 (Precision)')
+    plt.title('精确率-召回率曲线')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
+    # 不同阈值下的指标变化
+    print(f"\n========== 不同阈值下的指标变化 ==========")
+    # 选择几个关键阈值进行比较
+    threshold_candidates = [0.1, 0.3, 0.5, 0.7, 0.9]
+    threshold_candidates.append(best_threshold)
+    threshold_candidates = sorted(list(set(threshold_candidates)))  # 去重并排序
+    
+    print("阈값\t精确率\t召回率\tF1分数")
+    for threshold in threshold_candidates:
+        y_pred_temp = (y_proba_fraud >= threshold).astype(int)
+        prec = precision_score(y_test_binary_auc, y_pred_temp)
+        rec = recall_score(y_test_binary_auc, y_pred_temp)
+        f1 = f1_score(y_test_binary_auc, y_pred_temp)
+        print(f"{threshold:.3f}\t{prec:.4f}\t{rec:.4f}\t{f1:.4f}")
+
+else:
+    print("无法进行阈值调整，模型不支持预测概率")
+
+# 结束程序
+print("\n========== 模型优化完成 ==========")
