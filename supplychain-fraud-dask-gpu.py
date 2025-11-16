@@ -23,14 +23,22 @@ input_path = '/kaggle/input/source/'  # 修改为正确的数据集路径
 try:
     import dask
     import dask.dataframe as dd
-    from dask.distributed import Client
-    from dask_cuda import LocalCUDACluster
+    from dask.distributed import Client, LocalCluster
+    # 尝试导入LocalCUDACluster，如果失败则使用替代方案
+    try:
+        from dask_cuda import LocalCUDACluster
+        DASK_CUDA_AVAILABLE = True
+    except ImportError:
+        LocalCUDACluster = None
+        DASK_CUDA_AVAILABLE = False
+        print("警告: 未找到dask-cuda库，将使用标准Dask集群")
+    
     import xgboost as xgb
     from xgboost import dask as dxgb
     print("成功导入Dask和XGBoost相关库")
 except ImportError as e:
     print(f"导入库时出错: {e}")
-    print("请确保在Kaggle环境中安装了dask、dask-cuda和xgboost")
+    print("请确保在Kaggle环境中安装了必要的库")
 
 #==================================================
 # 数据加载和预处理
@@ -64,11 +72,18 @@ def load_and_preprocess_data():
 # 创建Dask集群并进行分布式训练
 #==================================================
 def setup_dask_cluster():
-    """设置Dask集群用于多GPU训练"""
+    """设置Dask集群用于分布式训练"""
     try:
-        # 创建本地CUDA集群，使用所有可用的GPU
-        # n_workers参数设置为GPU数量，threads_per_worker根据需要调整
-        cluster = LocalCUDACluster(n_workers=2, threads_per_worker=1)
+        if DASK_CUDA_AVAILABLE and LocalCUDACluster is not None:
+            # 创建本地CUDA集群，使用所有可用的GPU
+            # n_workers参数设置为GPU数量，threads_per_worker根据需要调整
+            cluster = LocalCUDACluster(n_workers=2, threads_per_worker=1)
+            print("使用CUDA集群进行多GPU训练")
+        else:
+            # 使用标准本地集群作为回退方案
+            cluster = LocalCluster(n_workers=2, threads_per_worker=2)
+            print("使用标准集群进行训练")
+        
         client = Client(cluster)
         print(f"成功创建Dask集群: {cluster}")
         print(f"客户端连接: {client}")
