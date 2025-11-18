@@ -1013,6 +1013,12 @@ if hasattr(lgb_model, 'feature_importances_'):
 print("\n========== 模型性能对比 ==========")
 print("单个模型 vs 投票集成模型")
 
+# 先打印测试集标签分布
+print(f"\n测试集真实标签分布 (y_test):")
+print(pd.Series(y_test).value_counts())
+print(f"\n测试集二分类标签分布 (y_test_2_voting):")
+print(y_test_2_voting.value_counts())
+
 # 单个模型性能评估
 print(f"\n单个模型性能:")
 
