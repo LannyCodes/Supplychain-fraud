@@ -880,10 +880,13 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
 rf_model = RandomForestClassifier(
-    n_estimators=100,
-    max_depth=10,
-    random_state=27,
-    class_weight='balanced'
+    max_depth=10,               # 增加树的深度
+    n_estimators=200,           # 增加树的数量
+    random_state=2021, 
+    class_weight='balanced',    # 处理不平衡数据
+    min_samples_split=5,        # 增加分割所需的最小样本数
+    min_samples_leaf=2,         # 增加叶节点最小样本数
+    max_features='sqrt'         # 限制特征数量
 )
 rf_model.fit(X_train_resampled, y_train_resampled)
 
@@ -892,19 +895,16 @@ print("========== 开始执行 LightGBM 模型 ==========")
 print("训练LightGBM模型...")
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
-    num_leaves=127,             # 增加叶子节点数
-    max_depth=8,                # 增加最大深度
-    learning_rate=0.05,         # 降低学习率
-    n_estimators=500,           # 增加树的数量
+    num_leaves=63,  # 2^6-1=63
+    max_depth=6,
+    learning_rate=0.1,
+    n_estimators=1000,
+    subsample=0.8,  # 添加subsample参数
+    colsample_bytree=0.8,  # 添加colsample_bytree参数
+    min_child_samples=20,  # 添加min_child_samples参数，防止过拟合
     random_state=27,
     class_weight='balanced',
-    min_child_samples=20,       # 增加子节点最小样本数
-    min_child_weight=0.001,     # 增加子节点最小权重
-    subsample=0.8,              # 样本采样比例
-    colsample_bytree=0.8,       # 特征采样比例
-    reg_alpha=0.1,              # L1正则化
-    reg_lambda=0.1,             # L2正则化
-    device='gpu'                # 启用GPU支持
+    device='gpu'  # 添加GPU支持
 )
 lgb_model.fit(X_train_resampled, y_train_resampled)
 
