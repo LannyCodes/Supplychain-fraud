@@ -1026,30 +1026,34 @@ print(f"\n单个模型性能:")
 rf_pred = rf_model.predict(X_test)
 # 检查预测结果的分布
 print(f"RandomForest预测结果分布: {pd.Series(rf_pred).value_counts()}")
+# 正确转换为二分类标签：8为欺诈订单（正类），其他为正常订单（负类）
 rf_pred_2 = pd.Series(rf_pred).apply(lambda x : 1 if x == 8 else 0).copy()
 # 检查转换后的二分类结果分布
 print(f"RandomForest二分类结果分布: {rf_pred_2.value_counts()}")
-rf_precision = precision_score(y_test_2_voting, rf_pred_2)
-rf_recall = recall_score(y_test_2_voting, rf_pred_2)
-rf_f1 = f1_score(y_test_2_voting, rf_pred_2)
+# 确保y_test_2_voting也是正确的二分类标签
+rf_precision = precision_score(y_test_2_voting, rf_pred_2, zero_division=0)
+rf_recall = recall_score(y_test_2_voting, rf_pred_2, zero_division=0)
+rf_f1 = f1_score(y_test_2_voting, rf_pred_2, zero_division=0)
 print(f"  RandomForest - 精确率: {rf_precision:.4f}, 召回率: {rf_recall:.4f}, F1分数: {rf_f1:.4f}")
 
 # LightGBM性能
 lgb_pred = lgb_model.predict(X_test)
 # 检查预测结果的分布
 print(f"LightGBM预测结果分布: {pd.Series(lgb_pred).value_counts()}")
+# 正确转换为二分类标签：8为欺诈订单（正类），其他为正常订单（负类）
 lgb_pred_2 = pd.Series(lgb_pred).apply(lambda x : 1 if x == 8 else 0).copy()
 # 检查转换后的二分类结果分布
 print(f"LightGBM二分类结果分布: {lgb_pred_2.value_counts()}")
-lgb_precision = precision_score(y_test_2_voting, lgb_pred_2)
-lgb_recall = recall_score(y_test_2_voting, lgb_pred_2)
-lgb_f1 = f1_score(y_test_2_voting, lgb_pred_2)
+# 确保y_test_2_voting也是正确的二分类标签
+lgb_precision = precision_score(y_test_2_voting, lgb_pred_2, zero_division=0)
+lgb_recall = recall_score(y_test_2_voting, lgb_pred_2, zero_division=0)
+lgb_f1 = f1_score(y_test_2_voting, lgb_pred_2, zero_division=0)
 print(f"  LightGBM    - 精确率: {lgb_precision:.4f}, 召回率: {lgb_recall:.4f}, F1分数: {lgb_f1:.4f}")
 
 # XGBoost性能（从之前的计算中获取）
-xgb_precision = precision_score(y_test_2, y_pred_2)
-xgb_recall = recall_score(y_test_2, y_pred_2)
-xgb_f1 = f1_score(y_test_2, y_pred_2)
+xgb_precision = precision_score(y_test_2, y_pred_2, zero_division=0)
+xgb_recall = recall_score(y_test_2, y_pred_2, zero_division=0)
+xgb_f1 = f1_score(y_test_2, y_pred_2, zero_division=0)
 print(f"  XGBoost     - 精确率: {xgb_precision:.4f}, 召回率: {xgb_recall:.4f}, F1分数: {xgb_f1:.4f}")
 
 # 投票集成模型性能
