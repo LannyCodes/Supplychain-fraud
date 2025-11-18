@@ -907,7 +907,7 @@ lgb_model = lgb.LGBMClassifier(
 lgb_model.fit(X_train_resampled, y_train_resampled)
 
 # 使用已有的XGBoost模型作为其中一个模型
-print("========== 开始执行 XGBoost 模型 ==========")
+
 xgb_model = xgr_optimized_4
 
 # 创建投票分类器
@@ -996,6 +996,7 @@ if hasattr(rf_model, 'feature_importances_'):
     print(feature_importance_df_rf.head(10))
 
 # LightGBM特征重要性
+print("========== LightGBM 特征重要性 ==========")
 if hasattr(lgb_model, 'feature_importances_'):
     print("\n特征重要性 (LightGBM):")
     feature_importance_lgb = lgb_model.feature_importances_
@@ -1017,7 +1018,11 @@ print(f"\n单个模型性能:")
 
 # RandomForest性能
 rf_pred = rf_model.predict(X_test)
+# 检查预测结果的分布
+print(f"RandomForest预测结果分布: {pd.Series(rf_pred).value_counts()}")
 rf_pred_2 = pd.Series(rf_pred).apply(lambda x : 1 if x == 8 else 0).copy()
+# 检查转换后的二分类结果分布
+print(f"RandomForest二分类结果分布: {rf_pred_2.value_counts()}")
 rf_precision = precision_score(y_test_2_voting, rf_pred_2)
 rf_recall = recall_score(y_test_2_voting, rf_pred_2)
 rf_f1 = f1_score(y_test_2_voting, rf_pred_2)
@@ -1025,7 +1030,11 @@ print(f"  RandomForest - 精确率: {rf_precision:.4f}, 召回率: {rf_recall:.4
 
 # LightGBM性能
 lgb_pred = lgb_model.predict(X_test)
+# 检查预测结果的分布
+print(f"LightGBM预测结果分布: {pd.Series(lgb_pred).value_counts()}")
 lgb_pred_2 = pd.Series(lgb_pred).apply(lambda x : 1 if x == 8 else 0).copy()
+# 检查转换后的二分类结果分布
+print(f"LightGBM二分类结果分布: {lgb_pred_2.value_counts()}")
 lgb_precision = precision_score(y_test_2_voting, lgb_pred_2)
 lgb_recall = recall_score(y_test_2_voting, lgb_pred_2)
 lgb_f1 = f1_score(y_test_2_voting, lgb_pred_2)
