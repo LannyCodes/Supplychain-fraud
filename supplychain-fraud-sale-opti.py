@@ -834,8 +834,8 @@ if y_proba_fraud is not None:
     y_pred_default = (y_proba_fraud >= 0.5).astype(int)
     
     print("默认阈值(0.5) vs 最佳阈值对比:")
-    print(f"默认阈值 - 精确率: {precision_score(y_test_binary_auc, y_pred_default):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_default):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_default):.4f}")
-    print(f"最佳阈值 - 精确率: {precision_score(y_test_binary_auc, y_pred_best):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_best):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_best):.4f}")
+    print(f"默认阈값 - 精确率: {precision_score(y_test_binary_auc, y_pred_default):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_default):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_default):.4f}")
+    print(f"最佳阈값 - 精确率: {precision_score(y_test_binary_auc, y_pred_best):.4f}, 召回率: {recall_score(y_test_binary_auc, y_pred_best):.4f}, F1: {f1_score(y_test_binary_auc, y_pred_best):.4f}")
     
     # 可视化精确率-召回率曲线
     plt.figure(figsize=(10, 6))
@@ -855,7 +855,7 @@ if y_proba_fraud is not None:
     threshold_candidates.append(best_threshold)
     threshold_candidates = sorted(list(set(threshold_candidates)))  # 去重并排序
     
-    print("阈值\t精确率\t召回率\tF1分数")
+    print("阈값\t精确率\t召回率\tF1分数")
     for threshold in threshold_candidates:
         y_pred_temp = (y_proba_fraud >= threshold).astype(int)
         prec = precision_score(y_test_binary_auc, y_pred_temp)
@@ -869,6 +869,174 @@ else:
 # 结束程序
 print("\n========== 模型优化完成 ==========")
 
+# 添加模型集成投票的代码
+print('\n========== 模型集成投票 (Voting) ==========')
+
+# 导入必要的库
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, roc_auc_score, average_precision_score
+
+# 创建RandomForestClassifier模型
+print("训练RandomForest模型...")
+rf_model = RandomForestClassifier(
+    n_estimators=100,
+    max_depth=10,
+    random_state=27,
+    class_weight='balanced'
+)
+rf_model.fit(X_train_resampled, y_train_resampled)
+
+# 创建LightGBM模型
+print("训练LightGBM模型...")
+lgb_model = lgb.LGBMClassifier(
+    boosting_type='gbdt',
+    num_leaves=31,
+    max_depth=6,
+    learning_rate=0.1,
+    n_estimators=1000,
+    random_state=27,
+    class_weight='balanced',
+    device='gpu'  # 添加GPU支持
+)
+lgb_model.fit(X_train_resampled, y_train_resampled)
+
+# 使用已有的XGBoost模型作为其中一个模型
+xgb_model = xgr_optimized_4
+
+# 创建投票分类器
+voting_clf = VotingClassifier(
+    estimators=[
+        ('rf', rf_model),
+        ('lgb', lgb_model),
+        ('xgb', xgb_model)
+    ],
+    voting='soft'  # 使用软投票
+)
+
+print("训练投票分类器...")
+# 训练投票分类器
+voting_clf.fit(X_train_resampled, y_train_resampled)
+
+# 进行预测
+print("进行预测...")
+y_pred_voting = voting_clf.predict(X_test)
+
+# 转换为二分类标签
+y_test_2_voting = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
+y_pred_2_voting = pd.Series(y_pred_voting).apply(lambda x : 1 if x == 8 else 0).copy()
+
+# 打印评估结果
+print('\n========== 投票分类器模型评估 ==========')
+print('\n混淆矩阵：')
+m_voting = confusion_matrix(y_test_2_voting, y_pred_2_voting)
+print(m_voting)
+
+# 准确率
+voting_accuracy = accuracy_score(y_test_2_voting, y_pred_2_voting)
+print(f"\n准确率 (Accuracy): {voting_accuracy:.4f}")
+
+# 精确率、召回率、F1分数（针对欺诈类别）
+voting_precision = precision_score(y_test_2_voting, y_pred_2_voting)
+voting_recall = recall_score(y_test_2_voting, y_pred_2_voting)
+voting_f1 = f1_score(y_test_2_voting, y_pred_2_voting)
+print(f"精确率 (Precision): {voting_precision:.4f}")
+print(f"召回率 (Recall): {voting_recall:.4f}")
+print(f"F1分数 (F1-Score): {voting_f1:.4f}")
+
+# 分类报告
+print('\n分类报告：')
+print(classification_report(y_test_2_voting, y_pred_2_voting, target_names=['正常订单', '欺诈订单']))
+
+# AUC-PR和AUC-ROC指标
+try:
+    # 获取预测概率
+    y_proba_fraud_voting = None
+    
+    # 针对投票分类器获取欺诈类别的概率
+    if hasattr(voting_clf, "predict_proba"):
+        y_proba = voting_clf.predict_proba(X_test)
+        # 获取欺诈类别（标签8）的概率
+        if hasattr(voting_clf, "classes_"):
+            fraud_class_index = list(voting_clf.classes_).index(8) if 8 in voting_clf.classes_ else -1
+            if fraud_class_index >= 0:
+                y_proba_fraud_voting = y_proba[:, fraud_class_index]
+    
+    # 计算AUC指标
+    if y_proba_fraud_voting is not None:
+        auc_roc_voting = roc_auc_score(y_test_2_voting, y_proba_fraud_voting)
+        auc_pr_voting = average_precision_score(y_test_2_voting, y_proba_fraud_voting)
+        print(f"AUC-ROC: {auc_roc_voting:.4f}")
+        print(f"AUC-PR: {auc_pr_voting:.4f}")
+    else:
+        print("模型不支持预测概率或未找到欺诈类别")
+        
+except Exception as e:
+    print(f"计算AUC指标时出错: {e}")
+
+# 各个模型的特征重要性
+print("\n========== 各个模型的特征重要性 ==========")
+
+# RandomForest特征重要性
+if hasattr(rf_model, 'feature_importances_'):
+    print("\n特征重要性 (RandomForest):")
+    feature_importance_rf = rf_model.feature_importances_
+    feature_names = X_train.columns
+    feature_importance_df_rf = pd.DataFrame({
+        'feature': feature_names,
+        'importance': feature_importance_rf
+    }).sort_values(by='importance', ascending=False)
+    print(feature_importance_df_rf.head(10))
+
+# LightGBM特征重要性
+if hasattr(lgb_model, 'feature_importances_'):
+    print("\n特征重要性 (LightGBM):")
+    feature_importance_lgb = lgb_model.feature_importances_
+    feature_names = X_train.columns
+    feature_importance_df_lgb = pd.DataFrame({
+        'feature': feature_names,
+        'importance': feature_importance_lgb
+    }).sort_values(by='importance', ascending=False)
+    print(feature_importance_df_lgb.head(10))
+
+# XGBoost特征重要性（已计算过）
+
+# 模型性能对比
+print("\n========== 模型性能对比 ==========")
+print("单个模型 vs 投票集成模型")
+
+# 单个模型性能评估
+print(f"\n单个模型性能:")
+
+# RandomForest性能
+rf_pred = rf_model.predict(X_test)
+rf_pred_2 = pd.Series(rf_pred).apply(lambda x : 1 if x == 8 else 0).copy()
+rf_precision = precision_score(y_test_2_voting, rf_pred_2)
+rf_recall = recall_score(y_test_2_voting, rf_pred_2)
+rf_f1 = f1_score(y_test_2_voting, rf_pred_2)
+print(f"  RandomForest - 精确率: {rf_precision:.4f}, 召回率: {rf_recall:.4f}, F1分数: {rf_f1:.4f}")
+
+# LightGBM性能
+lgb_pred = lgb_model.predict(X_test)
+lgb_pred_2 = pd.Series(lgb_pred).apply(lambda x : 1 if x == 8 else 0).copy()
+lgb_precision = precision_score(y_test_2_voting, lgb_pred_2)
+lgb_recall = recall_score(y_test_2_voting, lgb_pred_2)
+lgb_f1 = f1_score(y_test_2_voting, lgb_pred_2)
+print(f"  LightGBM    - 精确率: {lgb_precision:.4f}, 召回率: {lgb_recall:.4f}, F1分数: {lgb_f1:.4f}")
+
+# XGBoost性能（从之前的计算中获取）
+xgb_precision = precision_score(y_test_2, y_pred_2)
+xgb_recall = recall_score(y_test_2, y_pred_2)
+xgb_f1 = f1_score(y_test_2, y_pred_2)
+print(f"  XGBoost     - 精确率: {xgb_precision:.4f}, 召回率: {xgb_recall:.4f}, F1分数: {xgb_f1:.4f}")
+
+# 投票集成模型性能
+print(f"\n投票集成模型性能:")
+print(f"  精确率: {voting_precision:.4f}")
+print(f"  召回率: {voting_recall:.4f}")
+print(f"  F1分数: {voting_f1:.4f}")
+
+# 结束程序
+print("\n========== 模型集成优化完成 ==========")
 
 # 把准确率: 97.95%
 # 精确率: 52.37%
