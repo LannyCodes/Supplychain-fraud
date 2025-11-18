@@ -892,13 +892,19 @@ print("========== 开始执行 LightGBM 模型 ==========")
 print("训练LightGBM模型...")
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
-    num_leaves=63,  # 修改为63，满足2^max_depth-1的条件(2^6-1=63)
-    max_depth=6,
-    learning_rate=0.1,
-    n_estimators=1000,
+    num_leaves=127,             # 增加叶子节点数
+    max_depth=8,                # 增加最大深度
+    learning_rate=0.05,         # 降低学习率
+    n_estimators=500,           # 增加树的数量
     random_state=27,
     class_weight='balanced',
-    device='gpu'  # 添加GPU支持
+    min_child_samples=20,       # 增加子节点最小样本数
+    min_child_weight=0.001,     # 增加子节点最小权重
+    subsample=0.8,              # 样本采样比例
+    colsample_bytree=0.8,       # 特征采样比例
+    reg_alpha=0.1,              # L1正则化
+    reg_lambda=0.1,             # L2正则化
+    device='gpu'                # 启用GPU支持
 )
 lgb_model.fit(X_train_resampled, y_train_resampled)
 
