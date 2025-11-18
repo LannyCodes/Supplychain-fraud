@@ -867,10 +867,7 @@ else:
     print("无法进行阈值调整，模型不支持预测概率")
 
 # 结束程序
-print("\n========== 模型优化完成 ==========")
 
-# 添加模型集成投票的代码
-print('\n========== 模型集成投票 (Voting) ==========')
 
 # 导入必要的库
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -895,16 +892,17 @@ print("========== 开始执行 LightGBM 模型 ==========")
 print("训练LightGBM模型...")
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
-    num_leaves=63,  # 2^6-1=63
-    max_depth=6,
+    num_leaves=31,  # 还原为较小的值
+    max_depth=5,    # 降低最大深度
     learning_rate=0.1,
     n_estimators=1000,
-    subsample=0.8,  # 添加subsample参数
-    colsample_bytree=0.8,  # 添加colsample_bytree参数
-    min_child_samples=20,  # 添加min_child_samples参数，防止过拟合
+    subsample=0.8,
+    colsample_bytree=0.8,
+    min_child_samples=50,  # 增加子节点最小样本数
+    min_split_gain=0.1,   # 添加最小分割增益
     random_state=27,
     class_weight='balanced',
-    device='gpu'  # 添加GPU支持
+    device='gpu'
 )
 lgb_model.fit(X_train_resampled, y_train_resampled)
 
