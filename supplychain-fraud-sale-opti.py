@@ -564,7 +564,7 @@ print('\n========== XGBClassifier 模型评估 ==========')
 # 特征IV值分析和特征重要性评估将放到第四组调优后的模型中进行
 
 # 添加第三组参数调优代码
-print("\n========== XGBoost第三组参数调优 ==========")
+# print("\n========== XGBoost第三组参数调优 ==========")
 
 # 第三组参数调优：gamma, subsample, colsample_bytree
 # 简化参数组合，只使用3组参数以提高速度
@@ -584,7 +584,7 @@ print("\n========== XGBoost第三组参数调优 ==========")
 # )
 
 # 直接使用标准参数调优方法，移除Dask集群相关代码
-print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
+# print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
 # grid_search_3 = GridSearchCV(
 #     estimator=xgb_base_3,
 #     param_grid=param_grid_3,
@@ -607,7 +607,7 @@ print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
 # print(f"最佳得分: {grid_search_3.best_score_:.4f}")
 
 # 使用最佳参数重新训练模型
-print("使用第三组最佳参数重新训练模型...")
+# print("使用第三组最佳参数重新训练模型...")
 # xgr_optimized_3 = xgb.XGBClassifier(
 #     learning_rate=0.01,         # 第一组调优得到的最佳学习率
 #     n_estimators=1000,          # 第一组调优得到的最佳树数量
@@ -877,6 +877,7 @@ from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, roc_auc_score, average_precision_score
 
 # 创建RandomForestClassifier模型
+print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
 rf_model = RandomForestClassifier(
     n_estimators=100,
@@ -887,10 +888,11 @@ rf_model = RandomForestClassifier(
 rf_model.fit(X_train_resampled, y_train_resampled)
 
 # 创建LightGBM模型
+print("========== 开始执行 LightGBM 模型 ==========")
 print("训练LightGBM模型...")
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
-    num_leaves=31,
+    num_leaves=63,  # 修改为63，满足2^max_depth-1的条件(2^6-1=63)
     max_depth=6,
     learning_rate=0.1,
     n_estimators=1000,
@@ -901,9 +903,11 @@ lgb_model = lgb.LGBMClassifier(
 lgb_model.fit(X_train_resampled, y_train_resampled)
 
 # 使用已有的XGBoost模型作为其中一个模型
+print("========== 开始执行 XGBoost 模型 ==========")
 xgb_model = xgr_optimized_4
 
 # 创建投票分类器
+print("========== 开始执行 Voting 集成模型 ==========")
 voting_clf = VotingClassifier(
     estimators=[
         ('rf', rf_model),
