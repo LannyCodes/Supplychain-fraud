@@ -877,13 +877,13 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
 rf_model = RandomForestClassifier(
-    max_depth=10,               # 增加树的深度
-    n_estimators=200,           # 增加树的数量
-    random_state=2021, 
+    n_estimators=100,           # 树的数量
+    max_depth=10,               # 树的最大深度
+    min_samples_split=5,        # 内部节点分裂所需的最小样本数
+    min_samples_leaf=2,         # 叶节点所需的最小样本数
+    max_features='sqrt',        # 寻找最佳分割时考虑的特征数量
     class_weight='balanced',    # 处理不平衡数据
-    min_samples_split=5,        # 增加分割所需的最小样本数
-    min_samples_leaf=2,         # 增加叶节点最小样本数
-    max_features='sqrt'         # 限制特征数量
+    random_state=27             # 随机种子
 )
 rf_model.fit(X_train_resampled, y_train_resampled)
 
