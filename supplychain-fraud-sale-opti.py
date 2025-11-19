@@ -903,10 +903,29 @@ _lgb_gain = lgb_model.booster_.feature_importance(importance_type='gain')
 features_gain = list(lgb_model.booster_.feature_name())
 _lgb_gain_df = pd.DataFrame({'feature': features_gain, 'gain': _lgb_gain}).sort_values(by='gain', ascending=False)
 print(_lgb_gain_df.head(10))
-print('\nLightGBM置换重要性 (Top 10):')
-_pi_lgb = permutation_importance(lgb_model, X_test, y_test, n_repeats=5, random_state=27)
-_pi_lgb_df = pd.DataFrame({'feature': list(X_test.columns), 'importance': _pi_lgb.importances_mean}).sort_values(by='importance', ascending=False)
-print(_pi_lgb_df.head(10))
+print('\nLightGBM置换重要性 (Top 10, scoring=AP for fraud vs non-fraud):')
+X_test_sample = X_test.sample(n=min(5000, len(X_test)), random_state=27)
+y_test_sample_bin = y_test.loc[X_test_sample.index].apply(lambda x: 1 if x == 8 else 0)
+
+def _fraud_ap_scorer(estimator, X, y_bin):
+    if hasattr(estimator, 'predict_proba') and hasattr(estimator, 'classes_') and 8 in estimator.classes_:
+        proba = estimator.predict_proba(X)
+        idx = list(estimator.classes_).index(8)
+        return average_precision_score(y_bin, proba[:, idx])
+    y_pred_bin = pd.Series(estimator.predict(X)).apply(lambda x: 1 if x == 8 else 0)
+    return average_precision_score(y_bin, y_pred_bin)
+
+_pi_lgb_ap = permutation_importance(
+    lgb_model,
+    X_test_sample,
+    y_test_sample_bin,
+    n_repeats=3,
+    random_state=27,
+    scoring=_fraud_ap_scorer,
+    n_jobs=1
+)
+_pi_lgb_ap_df = pd.DataFrame({'feature': list(X_test_sample.columns), 'ap_importance': _pi_lgb_ap.importances_mean}).sort_values(by='ap_importance', ascending=False)
+print(_pi_lgb_ap_df.head(10))
 
 # 使用XGBoost模型（使用前20个特征）
 print("========== XGBoost模型（使用前20个特征）评估 ==========")
@@ -1038,6 +1057,30 @@ if hasattr(rf_model, 'feature_importances_'):
         'importance': feature_importance_rf
     }).sort_values(by='importance', ascending=False)
     print(feature_importance_df_rf.head(10))
+
+    print('\nRandomForest置换重要性 (Top 10, scoring=AP for fraud vs non-fraud):')
+    X_test_sample_rf = X_test.sample(n=min(5000, len(X_test)), random_state=27)
+    y_test_sample_bin_rf = y_test_2.loc[X_test_sample_rf.index]
+
+    def _fraud_ap_scorer_rf(estimator, X, y_bin):
+        if hasattr(estimator, 'predict_proba') and hasattr(estimator, 'classes_') and 8 in estimator.classes_:
+            proba = estimator.predict_proba(X)
+            idx = list(estimator.classes_).index(8)
+            return average_precision_score(y_bin, proba[:, idx])
+        y_pred_bin = pd.Series(estimator.predict(X)).apply(lambda x: 1 if x == 8 else 0)
+        return average_precision_score(y_bin, y_pred_bin)
+
+    _pi_rf_ap = permutation_importance(
+        rf_model,
+        X_test_sample_rf,
+        y_test_sample_bin_rf,
+        n_repeats=3,
+        random_state=27,
+        scoring=_fraud_ap_scorer_rf,
+        n_jobs=1
+    )
+    _pi_rf_ap_df = pd.DataFrame({'feature': list(X_test_sample_rf.columns), 'ap_importance': _pi_rf_ap.importances_mean}).sort_values(by='ap_importance', ascending=False)
+    print(_pi_rf_ap_df.head(10))
 
 # LightGBM特征重要性
 print("========== LightGBM 特征重要性 ==========")
