@@ -384,14 +384,15 @@ print(f"处理后数据形状: {data2.shape}")
 
 # 更新特征列列表 - 只保留前4个高价值特征
 # 前4个高价值特征: Delivery Status, Type_Delivery_Cross, Type, Late_delivery_risk
-high_value_features = ['Delivery Status', 'Type_Delivery_Cross', 'Type', 'Late_delivery_risk']
+print("使用全部特征进行训练...")
+feature_cols = [column for column in data2.columns if column not in drop_features]
 
 # 检查这些特征是否在数据中存在
-available_high_value_features = [col for col in high_value_features if col in data2.columns]
-print(f"可用的高价值特征: {available_high_value_features}")
+# available_high_value_features = [col for col in high_value_features if col in data2.columns]
+# print(f"可用的高价值特征: {available_high_value_features}")
 
 # 更新feature_cols只包含高价值特征
-feature_cols = [column for column in data2.columns if column in available_high_value_features]
+# feature_cols = [column for column in data2.columns if column in available_high_value_features]
 
 # 打印调试信息
 print(f"原始特征数量: {data2.shape[1]}")
@@ -564,7 +565,7 @@ print('\n========== XGBClassifier 模型评估 ==========')
 # 特征IV值分析和特征重要性评估将放到第四组调优后的模型中进行
 
 # 添加第三组参数调优代码
-# print("\n========== XGBoost第三组参数调优 ==========")
+print("\n========== XGBoost第三组参数调优 ==========")
 
 # 第三组参数调优：gamma, subsample, colsample_bytree
 # 简化参数组合，只使用3组参数以提高速度
@@ -584,7 +585,7 @@ print('\n========== XGBClassifier 模型评估 ==========')
 # )
 
 # 直接使用标准参数调优方法，移除Dask集群相关代码
-# print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
+print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
 # grid_search_3 = GridSearchCV(
 #     estimator=xgb_base_3,
 #     param_grid=param_grid_3,
