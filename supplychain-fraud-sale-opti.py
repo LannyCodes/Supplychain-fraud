@@ -1082,23 +1082,11 @@ if hasattr(rf_model, 'feature_importances_'):
     _pi_rf_ap_df = pd.DataFrame({'feature': list(X_test_sample_rf.columns), 'ap_importance': _pi_rf_ap.importances_mean}).sort_values(by='ap_importance', ascending=False)
     print(_pi_rf_ap_df.head(10))
 
-# LightGBM特征重要性
-print("========== LightGBM 特征重要性 ==========")
-if hasattr(lgb_model, 'feature_importances_'):
-    print("\n特征重要性 (LightGBM):")
-    feature_importance_lgb = lgb_model.feature_importances_
-    feature_names = list(lgb_model.booster_.feature_name())
-    feature_importance_df_lgb = pd.DataFrame({
-        'feature': feature_names,
-        'importance': feature_importance_lgb
-    }).sort_values(by='importance', ascending=False)
-    print(feature_importance_df_lgb.head(10))
 
-# XGBoost特征重要性（已计算过）
 
 # 模型性能对比
-iv_df = calculate_all_features_iv(X_train, y_train, top_n=9999)
-iv_selected = iv_df[iv_df['iv']>=0.02]['feature'].tolist()
+iv_df = calculate_all_features_iv(X_train, y_train, top_n=10)
+iv_selected = iv_df[iv_df['IV']>=0.02]['Feature'].tolist()
 X_train_iv = X_train_resampled[iv_selected]
 X_test_iv = X_test[iv_selected]
 print('\n========== IV≥0.02初筛 ==========')
