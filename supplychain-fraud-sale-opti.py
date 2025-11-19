@@ -96,7 +96,6 @@ import xgboost as xgb
 # 将DASK_AVAILABLE和DASK_CUDA_AVAILABLE设置为False
 DASK_AVAILABLE = False
 DASK_CUDA_AVAILABLE = False
-print("Dask分布式计算已禁用，将使用标准XGBoost训练")
 
 ## 参数搜索和评价的
 from sklearn.model_selection import GridSearchCV,cross_val_score,StratifiedKFold,train_test_split
@@ -376,11 +375,9 @@ drop_features = ['Order Status',
 
 # 更新特征列列表 - 恢复到只使用前4个高价值特征
 # 前4个高价值特征: Delivery Status, Type_Delivery_Cross, Type, Late_delivery_risk
-print("使用前4个高价值特征进行训练...")
-high_value_features = ['Delivery Status', 'Type_Delivery_Cross', 'Type', 'Late_delivery_risk']
-
-# 更新feature_cols只包含高价值特征
-feature_cols = [column for column in data2.columns if column in high_value_features and column not in drop_features]
+print("使用全部特征进行训练...")
+# 使用全部特征进行训练
+feature_cols = [column for column in data2.columns if column not in drop_features]
 
 # 打印调试信息
 print(f"原始特征数量: {data2.shape[1]}")
@@ -558,64 +555,6 @@ print('\n========== XGBClassifier 模型评估 ==========')
 # 第三组参数调优：gamma, subsample, colsample_bytree
 # 简化参数组合，只使用3组参数以提高速度
 
-# 创建基础模型用于调优（使用前两组调优得到的最佳参数）
-# xgb_base_3 = xgb.XGBClassifier(
-#     learning_rate=0.01,         # 第一组调优得到的最佳学习率
-#     n_estimators=1000,          # 第一组调优得到的最佳树数量
-#     max_depth=6,                # 直接使用最佳参数值
-#     min_child_weight=1,         # 直接使用最佳参数值
-#     objective='multi:softmax',
-#     eval_metric='mlogloss',
-#     random_state=27,
-#     tree_method='gpu_hist',
-#     predictor='gpu_predictor',
-#     use_label_encoder=False     # 避免标签编码器警告
-# )
-
-# 直接使用标准参数调优方法，移除Dask集群相关代码
-# print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
-# grid_search_3 = GridSearchCV(
-#     estimator=xgb_base_3,
-#     param_grid=param_grid_3,
-#     scoring='f1_macro',  # 使用F1分数作为评估指标
-#     cv=3,  # 3折交叉验证
-#     n_jobs=1,  # 限制并行任务数量以避免资源竞争
-#     verbose=1
-# )
-# 
-# # 由于参数组合较少，我们使用更小的样本进行调优以节省时间
-# # 使用10%的训练数据进行快速调优
-# sample_size = int(0.1 * len(X_train_resampled))
-# X_train_sample = X_train_resampled[:sample_size]
-# y_train_sample = y_train_resampled[:sample_size]
-# 
-# grid_search_3.fit(X_train_sample, y_train_sample)
-# 
-# print("第三组参数调优完成!")
-# print(f"最佳参数: {grid_search_3.best_params_}")
-# print(f"最佳得分: {grid_search_3.best_score_:.4f}")
-
-# 使用最佳参数重新训练模型
-# print("使用第三组最佳参数重新训练模型...")
-# xgr_optimized_3 = xgb.XGBClassifier(
-#     learning_rate=0.01,         # 第一组调优得到的最佳学习率
-#     n_estimators=1000,          # 第一组调优得到的最佳树数量
-#     max_depth=6,                # 直接使用最佳参数值
-#     min_child_weight=1,         # 直接使用最佳参数值
-#     gamma=0,                    # 第三组调优得到的最佳参数
-#     subsample=0.6,              # 第三组调优得到的最佳参数
-#     colsample_bytree=0.6,       # 第三组调优得到的最佳参数
-#     objective='multi:softmax',
-#     eval_metric='mlogloss',
-#     random_state=27,
-#     tree_method='gpu_hist',
-#     predictor='gpu_predictor',
-#     use_label_encoder=False     # 避免标签编码器警告
-# )
-
-# xgr_optimized_3.fit(X_train_resampled, y_train_resampled)
-# y_pred_optimized_3 = xgr_optimized_3.predict(X_test)
-
 # 直接使用已经调优好的参数模型进行阈值调优
 # 使用已确定的最佳参数直接创建第四组模型，移除参数调优部分以提高效率
 print("\n========== XGBoost第四组模型训练 ==========")
@@ -719,6 +658,25 @@ for feature in top_3_features:
     else:
         print("无法进行交叉分析...")
 
+### 使用XGBoost筛选的前20个重要特征作为统一特征维度
+print("\n========== 使用XGBoost前20个重要特征训练其他模型 ==========")
+# 获取前20个最重要的特征
+top_20_features = feature_importance_df_xgb.head(20)['feature'].tolist()
+print(f"选择的20个重要特征: {top_20_features}")
+
+# 重新构建训练和测试数据集，只使用这20个特征
+X_train_top20 = X_train[top_20_features]
+X_test_top20 = X_test[top_20_features]
+X_train_resampled_top20 = X_train_resampled[top_20_features]
+
+print(f"原始特征数: {X_train.shape[1]}")
+print(f"筛选后特征数: {X_train_top20.shape[1]}")
+
+# 转换为二分类标签
+display( pd.Series(y_test).value_counts() )
+y_test_2 = y_test.apply(lambda x : 1 if x ==8 else 0).copy()
+y_test_2.value_counts()
+
 ### plot feature importance
 fig,ax = plt.subplots(figsize=(15,15))
 xgb.plot_importance(xgr_optimized_4,
@@ -726,11 +684,6 @@ xgb.plot_importance(xgr_optimized_4,
                 ax=ax,
                 max_num_features=64)
 plt.show()
-
-# 转换为二分类标签
-display( pd.Series(y_test).value_counts() )
-y_test_2 = y_test.apply(lambda x : 1 if x ==8 else 0).copy()
-y_test_2.value_counts()
 
 # # 转换为二分类标签
 display( pd.Series(y_pred_optimized_4).value_counts() )
@@ -865,6 +818,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 # 创建RandomForestClassifier模型
 print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
+print(f"使用特征数: {X_train_resampled_top20.shape[1]}")
 rf_model = RandomForestClassifier(
     n_estimators=100,           # 树的数量
     max_depth=10,               # 树的最大深度
@@ -874,11 +828,36 @@ rf_model = RandomForestClassifier(
     class_weight='balanced',    # 处理不平衡数据
     random_state=27             # 随机种子
 )
-rf_model.fit(X_train_resampled, y_train_resampled)
+rf_model.fit(X_train_resampled_top20, y_train_resampled)
+print("RandomForest模型训练完成！")
+
+# 预测和评估RandomForest模型
+y_pred_rf = rf_model.predict(X_test_top20)
+y_pred_2_rf = pd.Series(y_pred_rf).apply(lambda x : 1 if x == 8 else 0).copy()
+
+print('\n========== RandomForest模型评估 ==========')
+print('混淆矩阵：')
+m_rf = confusion_matrix(y_test_2, y_pred_2_rf)
+print(m_rf)
+
+print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2, y_pred_2_rf):.4f}")
+print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2_rf):.4f}")
+print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2_rf):.4f}")
+print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2_rf):.4f}")
+
+# RandomForest特征重要性
+print('\nRandomForest特征重要性 (Top 10):')
+rf_feature_importance = rf_model.feature_importances_
+rf_feature_importance_df = pd.DataFrame({
+    'feature': top_20_features,
+    'importance': rf_feature_importance
+}).sort_values(by='importance', ascending=False)
+print(rf_feature_importance_df.head(10))
 
 # 创建LightGBM模型
 print("========== 开始执行 LightGBM 模型 ==========")
 print("训练LightGBM模型...")
+print(f"使用特征数: {X_train_resampled_top20.shape[1]}")
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
     num_leaves=31,  # 还原为较小的值
@@ -893,30 +872,68 @@ lgb_model = lgb.LGBMClassifier(
     class_weight='balanced',
     device='gpu'
 )
-lgb_model.fit(X_train_resampled, y_train_resampled)
+lgb_model.fit(X_train_resampled_top20, y_train_resampled)
+print("LightGBM模型训练完成！")
 
-# 使用已有的XGBoost模型作为其中一个模型
+# 预测和评估LightGBM模型
+y_pred_lgb = lgb_model.predict(X_test_top20)
+y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
 
-xgb_model = xgr_optimized_4
+print('\n========== LightGBM模型评估 ==========')
+print('混淆矩阵：')
+m_lgb = confusion_matrix(y_test_2, y_pred_2_lgb)
+print(m_lgb)
+
+print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2, y_pred_2_lgb):.4f}")
+print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2_lgb):.4f}")
+print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2_lgb):.4f}")
+print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2_lgb):.4f}")
+
+# LightGBM特征重要性
+print('\nLightGBM特征重要性 (Top 10):')
+lgb_feature_importance = lgb_model.feature_importances_
+lgb_feature_importance_df = pd.DataFrame({
+    'feature': top_20_features,
+    'importance': lgb_feature_importance
+}).sort_values(by='importance', ascending=False)
+print(lgb_feature_importance_df.head(10))
+
+# 使用XGBoost模型（使用前20个特征）
+print("========== XGBoost模型（使用前20个特征）评估 ==========")
+# 重新训练XGBoost模型，只使用前20个特征
+xgb_model_top20 = xgr_optimized_4  # 使用相同的模型参数
+xgb_model_top20.fit(X_train_resampled_top20, y_train_resampled)
+y_pred_xgb = xgb_model_top20.predict(X_test_top20)
+y_pred_2_xgb = pd.Series(y_pred_xgb).apply(lambda x : 1 if x == 8 else 0).copy()
+
+print('混淆矩阵：')
+m_xgb = confusion_matrix(y_test_2, y_pred_2_xgb)
+print(m_xgb)
+
+print(f"\n准确率 (Accuracy): {accuracy_score(y_test_2, y_pred_2_xgb):.4f}")
+print(f"精确率 (Precision): {precision_score(y_test_2, y_pred_2_xgb):.4f}")
+print(f"召回率 (Recall): {recall_score(y_test_2, y_pred_2_xgb):.4f}")
+print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2_xgb):.4f}")
 
 # 创建投票分类器
 print("========== 开始执行 Voting 集成模型 ==========")
+print(f"所有模型都使用前{len(top_20_features)}个重要特征")
 voting_clf = VotingClassifier(
     estimators=[
         ('rf', rf_model),
         ('lgb', lgb_model),
-        ('xgb', xgb_model)
+        ('xgb', xgb_model_top20)
     ],
     voting='soft'  # 使用软投票
 )
 
 print("训练投票分类器...")
-# 训练投票分类器
-voting_clf.fit(X_train_resampled, y_train_resampled)
+# 训练投票分类器（使用前20个特征）
+voting_clf.fit(X_train_resampled_top20, y_train_resampled)
 
 # 进行预测
 print("进行预测...")
-y_pred_voting = voting_clf.predict(X_test)
+y_pred_voting = voting_clf.predict(X_test_top20)
 
 # 转换为二分类标签
 y_test_2_voting = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
@@ -930,6 +947,34 @@ print(m_voting)
 
 # 准确率
 voting_accuracy = accuracy_score(y_test_2_voting, y_pred_2_voting)
+print(f"\n准确率 (Accuracy): {voting_accuracy:.4f}")
+print(f"精确率 (Precision): {precision_score(y_test_2_voting, y_pred_2_voting):.4f}")
+print(f"召回率 (Recall): {recall_score(y_test_2_voting, y_pred_2_voting):.4f}")
+print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, y_pred_2_voting):.4f}")
+
+# ========== 三个模型的性能对比 ==========
+print('\n========== 三个模型性能对比总结 ==========')
+print(f"{'模型':<15} {'准确率':<10} {'精确率':<10} {'召回率':<10} {'F1分数':<10}")
+print('-' * 60)
+print(f"{'RandomForest':<15} {accuracy_score(y_test_2, y_pred_2_rf):<10.4f} {precision_score(y_test_2, y_pred_2_rf):<10.4f} {recall_score(y_test_2, y_pred_2_rf):<10.4f} {f1_score(y_test_2, y_pred_2_rf):<10.4f}")
+print(f"{'LightGBM':<15} {accuracy_score(y_test_2, y_pred_2_lgb):<10.4f} {precision_score(y_test_2, y_pred_2_lgb):<10.4f} {recall_score(y_test_2, y_pred_2_lgb):<10.4f} {f1_score(y_test_2, y_pred_2_lgb):<10.4f}")
+print(f"{'XGBoost':<15} {accuracy_score(y_test_2, y_pred_2_xgb):<10.4f} {precision_score(y_test_2, y_pred_2_xgb):<10.4f} {recall_score(y_test_2, y_pred_2_xgb):<10.4f} {f1_score(y_test_2, y_pred_2_xgb):<10.4f}")
+print(f"{'Voting Ensemble':<15} {voting_accuracy:<10.4f} {precision_score(y_test_2_voting, y_pred_2_voting):<10.4f} {recall_score(y_test_2_voting, y_pred_2_voting):<10.4f} {f1_score(y_test_2_voting, y_pred_2_voting):<10.4f}")
+
+# 找出最佳模型
+models_scores = {
+    'RandomForest': f1_score(y_test_2, y_pred_2_rf),
+    'LightGBM': f1_score(y_test_2, y_pred_2_lgb),
+    'XGBoost': f1_score(y_test_2, y_pred_2_xgb),
+    'Voting Ensemble': f1_score(y_test_2_voting, y_pred_2_voting)
+}
+best_model = max(models_scores, key=models_scores.get)
+print(f"\n最佳模型（基于F1分数）: {best_model} (F1: {models_scores[best_model]:.4f})")
+
+print('\n========== 特征使用总结 ==========')
+print(f"✅ 所有模型均使用XGBoost筛选的前{len(top_20_features)}个重要特征")
+print(f"✅ 原始特征数: {X_train.shape[1]} -> 筛选后特征数: {len(top_20_features)}")
+print(f"✅ 特征减少比例: {(1 - len(top_20_features)/X_train.shape[1])*100:.1f}%")
 print(f"\n准确率 (Accuracy): {voting_accuracy:.4f}")
 
 # 精确率、召回率、F1分数（针对欺诈类别）
