@@ -354,21 +354,6 @@ data['Order Status'].value_counts().plot.bar()
 
 #  切分训练集、测试集
 
-# # ### 删除不适用的特征
-drop_features = ['Order Status', 
-                 #'shipping_year', 'shipping_month', 'shipping_week_day', 'shipping_hour',
-                 #'order_year', 'order_month', 'order_week_day', 'order_hour',
-                 'order date (DateOrders)', 'shipping date (DateOrders)'
-                ]
-
-astype_features = [
-                   'shipping_year', 'shipping_month', 'shipping_week_day', 'shipping_hour',
-                   'order_year', 'order_month', 'order_week_day', 'order_hour'
-                  ]
-
-for column in astype_features:
-    data[column] = data[column].astype('category')
-
 # 重新对包含新特征的data2进行LabelEncoder编码
 print("重新进行LabelEncoder编码，包含交叉特征...")
 data2 = data.copy()
@@ -382,17 +367,20 @@ for col, clf in clfs.items():
 print(f"原始数据形状: {data.shape}")
 print(f"处理后数据形状: {data2.shape}")
 
-# 更新特征列列表 - 只保留前4个高价值特征
-# 前4个高价值特征: Delivery Status, Type_Delivery_Cross, Type, Late_delivery_risk
-print("使用全部特征进行训练...")
-feature_cols = [column for column in data2.columns if column not in drop_features]
+# ### 删除不适用的特征
+drop_features = ['Order Status', 
+                 #'shipping_year', 'shipping_month', 'shipping_week_day', 'shipping_hour',
+                 #'order_year', 'order_month', 'order_week_day', 'order_hour',
+                 'order date (DateOrders)', 'shipping date (DateOrders)'
+                ]
 
-# 检查这些特征是否在数据中存在
-# available_high_value_features = [col for col in high_value_features if col in data2.columns]
-# print(f"可用的高价值特征: {available_high_value_features}")
+# 更新特征列列表 - 恢复到只使用前4个高价值特征
+# 前4个高价值特征: Delivery Status, Type_Delivery_Cross, Type, Late_delivery_risk
+print("使用前4个高价值特征进行训练...")
+high_value_features = ['Delivery Status', 'Type_Delivery_Cross', 'Type', 'Late_delivery_risk']
 
 # 更新feature_cols只包含高价值特征
-# feature_cols = [column for column in data2.columns if column in available_high_value_features]
+feature_cols = [column for column in data2.columns if column in high_value_features and column not in drop_features]
 
 # 打印调试信息
 print(f"原始特征数量: {data2.shape[1]}")
@@ -565,7 +553,7 @@ print('\n========== XGBClassifier 模型评估 ==========')
 # 特征IV值分析和特征重要性评估将放到第四组调优后的模型中进行
 
 # 添加第三组参数调优代码
-print("\n========== XGBoost第三组参数调优 ==========")
+# print("\n========== XGBoost第三组参数调优 ==========")
 
 # 第三组参数调优：gamma, subsample, colsample_bytree
 # 简化参数组合，只使用3组参数以提高速度
@@ -585,7 +573,7 @@ print("\n========== XGBoost第三组参数调优 ==========")
 # )
 
 # 直接使用标准参数调优方法，移除Dask集群相关代码
-print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
+# print("执行第三组参数调优 (gamma, subsample, colsample_bytree)...")
 # grid_search_3 = GridSearchCV(
 #     estimator=xgb_base_3,
 #     param_grid=param_grid_3,
