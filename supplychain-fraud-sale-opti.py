@@ -498,7 +498,7 @@ def calculate_all_features_iv(X, y, top_n=10):
                 woe_df, iv = calculate_woe_iv(pd.DataFrame({feature: X[feature], 'target': y_binary}), feature, 'target')
             
             iv_values.append({'Feature': feature, 'IV': iv})
-            print(f"特征 '{feature}' 的IV值: {iv:.4f}")
+            # print(f"特征 '{feature}' 的IV值: {iv:.4f}")
             
         except Exception as e:
             print(f"计算特征 '{feature}' 的IV值时出错: {e}")
@@ -903,9 +903,13 @@ _lgb_gain = lgb_model.booster_.feature_importance(importance_type='gain')
 features_gain = list(lgb_model.booster_.feature_name())
 _lgb_gain_df = pd.DataFrame({'feature': features_gain, 'gain': _lgb_gain}).sort_values(by='gain', ascending=False)
 print(_lgb_gain_df.head(10))
-print('\nLightGBM置换重要性 (Top 10, scoring=AP for fraud vs non-fraud):')
+print('\nLightGBM置换重要性 (Top 10, scoring=AP for fraud vs non-fraud, on gain Top30 features):')
 X_test_sample = X_test.sample(n=min(5000, len(X_test)), random_state=27)
 y_test_sample_bin = y_test.loc[X_test_sample.index].apply(lambda x: 1 if x == 8 else 0)
+
+# 仅在增益Top30候选特征上进行置换重要性
+top30_gain_features = _lgb_gain_df['feature'].head(30).tolist()
+X_test_sample_top30 = X_test_sample[top30_gain_features]
 
 def _fraud_ap_scorer(estimator, X, y_bin):
     if hasattr(estimator, 'predict_proba') and hasattr(estimator, 'classes_') and 8 in estimator.classes_:
@@ -917,14 +921,14 @@ def _fraud_ap_scorer(estimator, X, y_bin):
 
 _pi_lgb_ap = permutation_importance(
     lgb_model,
-    X_test_sample,
+    X_test_sample_top30,
     y_test_sample_bin,
     n_repeats=3,
     random_state=27,
     scoring=_fraud_ap_scorer,
     n_jobs=1
 )
-_pi_lgb_ap_df = pd.DataFrame({'feature': list(X_test_sample.columns), 'ap_importance': _pi_lgb_ap.importances_mean}).sort_values(by='ap_importance', ascending=False)
+_pi_lgb_ap_df = pd.DataFrame({'feature': list(X_test_sample_top30.columns), 'ap_importance': _pi_lgb_ap.importances_mean}).sort_values(by='ap_importance', ascending=False)
 print(_pi_lgb_ap_df.head(10))
 
 # 使用XGBoost模型（使用前20个特征）
