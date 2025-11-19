@@ -373,8 +373,6 @@ drop_features = ['Order Status',
                  'order date (DateOrders)', 'shipping date (DateOrders)'
                 ]
 
-# 更新特征列列表 - 使用全部特征以便XGBoost筛选Top20重要特征
-# 不再仅限于4个“高价值”特征，避免信息损失
 print("使用全部特征进行训练...")
 # 使用全部特征进行训练
 feature_cols = [column for column in data2.columns if column not in drop_features]
@@ -423,7 +421,7 @@ def calculate_woe_iv(dataset, feature, target):
     woe_df: 包含WOE值的DataFrame
     iv: 信息值
     """
-    print(f"\n计算特征 '{feature}' 的WOE和IV值...")
+
     
     # 创建交叉表
     df = pd.crosstab(dataset[feature], dataset[target], margins=True)
@@ -535,30 +533,6 @@ print(f"过采样后训练集样本数: {len(y_train_resampled)}")
 print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
 
 print('\n========== XGBClassifier 模型评估 ==========')
-
-#XGBClassifier 
-# 使用第一组参数调优得到的最佳参数
-
-# 首先使用标准XGBoost训练模型，避免因Dask集群创建问题导致卡住
-
-# 进行预测
-
-# 计算所有特征的IV值
-
-# 打印特征重要性
-
-# 特征IV值分析和特征重要性评估将放到第四组调优后的模型中进行
-
-# 添加第三组参数调优代码
-# print("\n========== XGBoost第三组参数调优 ==========")
-
-# 第三组参数调优：gamma, subsample, colsample_bytree
-# 简化参数组合，只使用3组参数以提高速度
-
-# 直接使用已经调优好的参数模型进行阈值调优
-# 使用已确定的最佳参数直接创建第四组模型，移除参数调优部分以提高效率
-print("\n========== XGBoost第四组模型训练 ==========")
-
 # 直接使用所有已确定的最佳参数创建最终模型
 xgr_optimized_4 = xgb.XGBClassifier(
     learning_rate=0.01,         # 第一组调优得到的最佳学习率
@@ -909,7 +883,13 @@ y_test_sample_bin = y_test.loc[X_test_sample.index].apply(lambda x: 1 if x == 8 
 
 # 仅在增益Top30候选特征上进行置换重要性
 top30_gain_features = _lgb_gain_df['feature'].head(30).tolist()
-X_test_sample_top30 = X_test_sample[top30_gain_features]
+_sanitize = lambda s: s.replace(' ', '_').replace('(', '_').replace(')', '_')
+_map = {_sanitize(c): c for c in X_test.columns}
+_top30_cols = [_map[f] for f in top30_gain_features if f in _map]
+_missing = [f for f in top30_gain_features if f not in _map]
+if _missing:
+    print("Top30特征在测试集列中未找到:", _missing)
+X_test_sample_top30 = X_test_sample[_top30_cols]
 
 def _fraud_ap_scorer(estimator, X, y_bin):
     if hasattr(estimator, 'predict_proba') and hasattr(estimator, 'classes_') and 8 in estimator.classes_:
