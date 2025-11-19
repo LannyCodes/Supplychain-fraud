@@ -813,6 +813,7 @@ else:
 
 # 导入必要的库
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.inspection import permutation_importance
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, roc_auc_score, average_precision_score
 
 # 创建RandomForestClassifier模型
@@ -897,6 +898,15 @@ lgb_feature_importance_df = pd.DataFrame({
     'importance': lgb_feature_importance
 }).sort_values(by='importance', ascending=False)
 print(lgb_feature_importance_df.head(10))
+print('\nLightGBM增益重要性 (Top 10):')
+_lgb_gain = lgb_model.booster_.feature_importance(importance_type='gain')
+features_gain = list(lgb_model.booster_.feature_name())
+_lgb_gain_df = pd.DataFrame({'feature': features_gain, 'gain': _lgb_gain}).sort_values(by='gain', ascending=False)
+print(_lgb_gain_df.head(10))
+print('\nLightGBM置换重要性 (Top 10):')
+_pi_lgb = permutation_importance(lgb_model, X_test, y_test, n_repeats=5, random_state=27)
+_pi_lgb_df = pd.DataFrame({'feature': list(X_test.columns), 'importance': _pi_lgb.importances_mean}).sort_values(by='importance', ascending=False)
+print(_pi_lgb_df.head(10))
 
 # 使用XGBoost模型（使用前20个特征）
 print("========== XGBoost模型（使用前20个特征）评估 ==========")
@@ -1022,7 +1032,7 @@ print("\n========== 各个模型的特征重要性 ==========")
 if hasattr(rf_model, 'feature_importances_'):
     print("\n特征重要性 (RandomForest):")
     feature_importance_rf = rf_model.feature_importances_
-    feature_names = X_train_resampled.columns
+    feature_names = list(X_train_resampled.columns)
     feature_importance_df_rf = pd.DataFrame({
         'feature': feature_names,
         'importance': feature_importance_rf
@@ -1034,7 +1044,7 @@ print("========== LightGBM 特征重要性 ==========")
 if hasattr(lgb_model, 'feature_importances_'):
     print("\n特征重要性 (LightGBM):")
     feature_importance_lgb = lgb_model.feature_importances_
-    feature_names = top_20_features
+    feature_names = list(lgb_model.booster_.feature_name())
     feature_importance_df_lgb = pd.DataFrame({
         'feature': feature_names,
         'importance': feature_importance_lgb
@@ -1044,6 +1054,47 @@ if hasattr(lgb_model, 'feature_importances_'):
 # XGBoost特征重要性（已计算过）
 
 # 模型性能对比
+iv_df = calculate_all_features_iv(X_train, y_train, top_n=9999)
+iv_selected = iv_df[iv_df['iv']>=0.02]['feature'].tolist()
+X_train_iv = X_train_resampled[iv_selected]
+X_test_iv = X_test[iv_selected]
+print('\n========== IV≥0.02初筛 ==========')
+print(f'特征数: {len(iv_selected)}')
+rf_iv = RandomForestClassifier(n_estimators=300,max_depth=10,min_samples_split=5,min_samples_leaf=2,max_features="sqrt",class_weight="balanced",random_state=27)
+rf_iv.fit(X_train_iv,y_train_resampled)
+imp_rf = rf_iv.feature_importances_; names_iv = X_train_iv.columns
+top30_rf = [names_iv[i] for i in np.argsort(imp_rf)[-30:]]
+lgb_iv = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=50,min_split_gain=0.1,random_state=27,class_weight='balanced',device='gpu')
+lgb_iv.fit(X_train_iv,y_train_resampled)
+gain_lgb_iv = lgb_iv.booster_.feature_importance(importance_type='gain')
+top30_lgb = [names_iv[i] for i in np.argsort(gain_lgb_iv)[-30:]]
+xgb_iv = xgb.XGBClassifier(learning_rate=0.01,n_estimators=1000,max_depth=6,min_child_weight=1,gamma=0,subsample=0.6,colsample_bytree=0.6,reg_alpha=0,reg_lambda=0,objective='multi:softmax',eval_metric='mlogloss',random_state=27,tree_method='gpu_hist',predictor='gpu_predictor',use_label_encoder=False)
+xgb_iv.fit(X_train_iv,y_train_resampled)
+imp_xgb_iv = xgb_iv.feature_importances_
+top30_xgb = [names_iv[i] for i in np.argsort(imp_xgb_iv)[-30:]]
+union_features = list(set(top30_rf) | set(top30_lgb) | set(top30_xgb))
+X_train_union = X_train_resampled[union_features]
+X_test_union = X_test[union_features]
+print('\n========== 并集Top30复筛 ==========')
+print(f'特征数: {len(union_features)}')
+rf_u = RandomForestClassifier(n_estimators=300,max_depth=10,min_samples_split=5,min_samples_leaf=2,max_features="sqrt",class_weight="balanced",random_state=27)
+rf_u.fit(X_train_union,y_train_resampled)
+lgb_u = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=50,min_split_gain=0.1,random_state=27,class_weight='balanced',device='gpu')
+lgb_u.fit(X_train_union,y_train_resampled)
+xgb_u = xgb.XGBClassifier(learning_rate=0.01,n_estimators=1000,max_depth=6,min_child_weight=1,gamma=0,subsample=0.6,colsample_bytree=0.6,reg_alpha=0,reg_lambda=0,objective='multi:softmax',eval_metric='mlogloss',random_state=27,tree_method='gpu_hist',predictor='gpu_predictor',use_label_encoder=False)
+xgb_u.fit(X_train_union,y_train_resampled)
+pred_rf_u = rf_u.predict(X_test_union); pred_lgb_u = lgb_u.predict(X_test_union); pred_xgb_u = xgb_u.predict(X_test_union)
+y_test_2_union = y_test.apply(lambda x: 1 if x==8 else 0)
+pred2_rf_u = pd.Series(pred_rf_u).apply(lambda x: 1 if x==8 else 0)
+pred2_lgb_u = pd.Series(pred_lgb_u).apply(lambda x: 1 if x==8 else 0)
+pred2_xgb_u = pd.Series(pred_xgb_u).apply(lambda x: 1 if x==8 else 0)
+rf_f1_u = f1_score(y_test_2_union,pred2_rf_u); lgb_f1_u = f1_score(y_test_2_union,pred2_lgb_u); xgb_f1_u = f1_score(y_test_2_union,pred2_xgb_u)
+voting_u = VotingClassifier(estimators=[('rf',rf_u),('lgb',lgb_u),('xgb',xgb_u)],voting='soft')
+voting_u.fit(X_train_union,y_train_resampled)
+pred_v_u = voting_u.predict(X_test_union)
+pred2_v_u = pd.Series(pred_v_u).apply(lambda x: 1 if x==8 else 0)
+v_f1_u = f1_score(y_test_2_union,pred2_v_u)
+print(f'F1: RF {rf_f1_u:.4f}  LGBM {lgb_f1_u:.4f}  XGB {xgb_f1_u:.4f}  Voting {v_f1_u:.4f}')
 print("\n========== 模型性能对比 ==========")
 print("单个模型 vs 投票集成模型")
 
