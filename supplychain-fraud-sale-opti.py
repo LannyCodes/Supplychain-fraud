@@ -373,8 +373,8 @@ drop_features = ['Order Status',
                  'order date (DateOrders)', 'shipping date (DateOrders)'
                 ]
 
-# 更新特征列列表 - 恢复到只使用前4个高价值特征
-# 前4个高价值特征: Delivery Status, Type_Delivery_Cross, Type, Late_delivery_risk
+# 更新特征列列表 - 使用全部特征以便XGBoost筛选Top20重要特征
+# 不再仅限于4个“高价值”特征，避免信息损失
 print("使用全部特征进行训练...")
 # 使用全部特征进行训练
 feature_cols = [column for column in data2.columns if column not in drop_features]
@@ -818,7 +818,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 # 创建RandomForestClassifier模型
 print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
-print(f"使用特征数: {X_train_resampled_top20.shape[1]}")
+print(f"使用特征数: {X_train_resampled.shape[1]}")
 rf_model = RandomForestClassifier(
     n_estimators=100,           # 树的数量
     max_depth=10,               # 树的最大深度
@@ -828,11 +828,11 @@ rf_model = RandomForestClassifier(
     class_weight='balanced',    # 处理不平衡数据
     random_state=27             # 随机种子
 )
-rf_model.fit(X_train_resampled_top20, y_train_resampled)
+rf_model.fit(X_train_resampled, y_train_resampled)
 print("RandomForest模型训练完成！")
 
 # 预测和评估RandomForest模型
-y_pred_rf = rf_model.predict(X_test_top20)
+y_pred_rf = rf_model.predict(X_test)
 y_pred_2_rf = pd.Series(y_pred_rf).apply(lambda x : 1 if x == 8 else 0).copy()
 
 print('\n========== RandomForest模型评估 ==========')
@@ -849,7 +849,7 @@ print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2_rf):.4f}")
 print('\nRandomForest特征重要性 (Top 10):')
 rf_feature_importance = rf_model.feature_importances_
 rf_feature_importance_df = pd.DataFrame({
-    'feature': top_20_features,
+    'feature': X_train_resampled.columns,
     'importance': rf_feature_importance
 }).sort_values(by='importance', ascending=False)
 print(rf_feature_importance_df.head(10))
@@ -872,11 +872,11 @@ lgb_model = lgb.LGBMClassifier(
     class_weight='balanced',
     device='gpu'
 )
-lgb_model.fit(X_train_resampled_top20, y_train_resampled)
+lgb_model.fit(X_train_resampled, y_train_resampled)
 print("LightGBM模型训练完成！")
 
 # 预测和评估LightGBM模型
-y_pred_lgb = lgb_model.predict(X_test_top20)
+y_pred_lgb = lgb_model.predict(X_test)
 y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
 
 print('\n========== LightGBM模型评估 ==========')
@@ -893,7 +893,7 @@ print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2_lgb):.4f}")
 print('\nLightGBM特征重要性 (Top 10):')
 lgb_feature_importance = lgb_model.feature_importances_
 lgb_feature_importance_df = pd.DataFrame({
-    'feature': top_20_features,
+    'feature': X_train_resampled.columns,
     'importance': lgb_feature_importance
 }).sort_values(by='importance', ascending=False)
 print(lgb_feature_importance_df.head(10))
@@ -917,7 +917,7 @@ print(f"F1分数 (F1-Score): {f1_score(y_test_2, y_pred_2_xgb):.4f}")
 
 # 创建投票分类器
 print("========== 开始执行 Voting 集成模型 ==========")
-print(f"所有模型都使用前{len(top_20_features)}个重要特征")
+print("所有模型使用全部特征")
 voting_clf = VotingClassifier(
     estimators=[
         ('rf', rf_model),
@@ -928,12 +928,12 @@ voting_clf = VotingClassifier(
 )
 
 print("训练投票分类器...")
-# 训练投票分类器（使用前20个特征）
-voting_clf.fit(X_train_resampled_top20, y_train_resampled)
+# 训练投票分类器（使用全部特征）
+voting_clf.fit(X_train_resampled, y_train_resampled)
 
 # 进行预测
 print("进行预测...")
-y_pred_voting = voting_clf.predict(X_test_top20)
+y_pred_voting = voting_clf.predict(X_test)
 
 # 转换为二分类标签
 y_test_2_voting = y_test.apply(lambda x : 1 if x == 8 else 0).copy()
@@ -972,7 +972,7 @@ best_model = max(models_scores, key=models_scores.get)
 print(f"\n最佳模型（基于F1分数）: {best_model} (F1: {models_scores[best_model]:.4f})")
 
 print('\n========== 特征使用总结 ==========')
-print(f"✅ 所有模型均使用XGBoost筛选的前{len(top_20_features)}个重要特征")
+print("✅ 所有模型均使用全部特征")
 print(f"✅ 原始特征数: {X_train.shape[1]} -> 筛选后特征数: {len(top_20_features)}")
 print(f"✅ 特征减少比例: {(1 - len(top_20_features)/X_train.shape[1])*100:.1f}%")
 print(f"\n准确率 (Accuracy): {voting_accuracy:.4f}")
@@ -1022,7 +1022,7 @@ print("\n========== 各个模型的特征重要性 ==========")
 if hasattr(rf_model, 'feature_importances_'):
     print("\n特征重要性 (RandomForest):")
     feature_importance_rf = rf_model.feature_importances_
-    feature_names = X_train.columns
+    feature_names = X_train_resampled.columns
     feature_importance_df_rf = pd.DataFrame({
         'feature': feature_names,
         'importance': feature_importance_rf
@@ -1034,7 +1034,7 @@ print("========== LightGBM 特征重要性 ==========")
 if hasattr(lgb_model, 'feature_importances_'):
     print("\n特征重要性 (LightGBM):")
     feature_importance_lgb = lgb_model.feature_importances_
-    feature_names = X_train.columns
+    feature_names = top_20_features
     feature_importance_df_lgb = pd.DataFrame({
         'feature': feature_names,
         'importance': feature_importance_lgb
