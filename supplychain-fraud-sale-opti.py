@@ -432,14 +432,14 @@ def calculate_woe_iv(dataset, feature, target):
     
     return woe_df, iv
 
-def calculate_all_features_iv(X, y, top_n=10):
+def calculate_all_features_iv(X, y):
     """
     计算所有特征的IV值并排序
     
     Parameters:
     X: 特征数据
     y: 目标变量（需要转换为二分类）
-    top_n: 返回前N个特征
+    说明：返回所有特征的IV值排序结果
     
     Returns:
     iv_df: 包含所有特征IV值的DataFrame
@@ -471,10 +471,10 @@ def calculate_all_features_iv(X, y, top_n=10):
                     # 如果唯一值较少，直接使用原始值
                     X_binned = X_temp
                 
-                woe_df, iv = calculate_woe_iv(pd.DataFrame({feature: X_binned, 'target': y_binary}), feature, 'target')
+                _, iv = calculate_woe_iv(pd.DataFrame({feature: X_binned, 'target': y_binary}), feature, 'target')
             else:
                 # 对于分类特征，直接计算
-                woe_df, iv = calculate_woe_iv(pd.DataFrame({feature: X[feature], 'target': y_binary}), feature, 'target')
+                _, iv = calculate_woe_iv(pd.DataFrame({feature: X[feature], 'target': y_binary}), feature, 'target')
             
             iv_values.append({'Feature': feature, 'IV': iv})
             # print(f"特征 '{feature}' 的IV值: {iv:.4f}")
@@ -677,89 +677,6 @@ try:
 except Exception as e:
     print(f"计算AUC指标时出错: {e}")
 
-print('\n========== 加权投票（使用调优后F1作为权重） ==========')
-_w = np.array([rf_f1 if 'rf_f1' in globals() else 0, lgb_f1 if 'lgb_f1' in globals() else 0, xgb_f1 if 'xgb_f1' in globals() else 0], dtype=float)
-if _w.sum() <= 0:
-    _w = np.array([1.0, 1.0, 1.0], dtype=float)
-_w = (_w / _w.sum()).tolist()
-voting_clf_weighted = VotingClassifier(
-    estimators=[('rf', rf_model), ('lgb', lgb_model), ('xgb', xgb_model_top20)],
-    voting='soft',
-    weights=_w
-)
-voting_clf_weighted.fit(X_train_resampled, y_train_resampled)
-_proba_w = None
-if hasattr(voting_clf_weighted, 'predict_proba'):
-    _p = voting_clf_weighted.predict_proba(X_test)
-    if hasattr(voting_clf_weighted, 'classes_') and 8 in voting_clf_weighted.classes_:
-        _idx = list(voting_clf_weighted.classes_).index(8)
-        _proba_w = _p[:, _idx]
-_best_f1_v, _best_t_v = -1.0, 0.5
-if _proba_w is not None:
-    for _t in np.linspace(0.2, 0.7, 26):
-        _pred_opt = (_proba_w >= _t).astype(int)
-        _f1 = f1_score(y_test_2_voting, _pred_opt)
-        if _f1 > _best_f1_v:
-            _best_f1_v, _best_t_v = _f1, _t
-    _pred_best = (_proba_w >= _best_t_v).astype(int)
-    _m_best = confusion_matrix(y_test_2_voting, _pred_best)
-    print(f"权重: {_w}")
-    print(f"最优阈值: {_best_t_v:.2f}, 最优F1: {_best_f1_v:.4f}")
-    print('混淆矩阵：')
-    print(_m_best)
-    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred_best):.4f}")
-    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred_best):.4f}")
-    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred_best):.4f}")
-    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred_best):.4f}")
-else:
-    _pred = voting_clf_weighted.predict(X_test)
-    _pred2 = pd.Series(_pred).apply(lambda x: 1 if x == 8 else 0)
-    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred2):.4f}")
-    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred2):.4f}")
-    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred2):.4f}")
-    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred2):.4f}")
-
-print('\n========== 双模型投票（LightGBM + XGBoost） ==========')
-_w2 = np.array([lgb_f1 if 'lgb_f1' in globals() else 0, xgb_f1 if 'xgb_f1' in globals() else 0], dtype=float)
-if _w2.sum() <= 0:
-    _w2 = np.array([1.0, 1.0], dtype=float)
-_w2 = (_w2 / _w2.sum()).tolist()
-voting_clf_dual = VotingClassifier(
-    estimators=[('lgb', lgb_model), ('xgb', xgb_model_top20)],
-    voting='soft',
-    weights=_w2
-)
-voting_clf_dual.fit(X_train_resampled, y_train_resampled)
-_proba_d = None
-if hasattr(voting_clf_dual, 'predict_proba'):
-    _pd = voting_clf_dual.predict_proba(X_test)
-    if hasattr(voting_clf_dual, 'classes_') and 8 in voting_clf_dual.classes_:
-        _idxd = list(voting_clf_dual.classes_).index(8)
-        _proba_d = _pd[:, _idxd]
-_best_f1_d, _best_t_d = -1.0, 0.5
-if _proba_d is not None:
-    for _t in np.linspace(0.2, 0.7, 26):
-        _pred_opt = (_proba_d >= _t).astype(int)
-        _f1 = f1_score(y_test_2_voting, _pred_opt)
-        if _f1 > _best_f1_d:
-            _best_f1_d, _best_t_d = _f1, _t
-    _pred_best = (_proba_d >= _best_t_d).astype(int)
-    _m_best = confusion_matrix(y_test_2_voting, _pred_best)
-    print(f"权重: {_w2}")
-    print(f"最优阈值: {_best_t_d:.2f}, 最优F1: {_best_f1_d:.4f}")
-    print('混淆矩阵：')
-    print(_m_best)
-    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred_best):.4f}")
-    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred_best):.4f}")
-    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred_best):.4f}")
-    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred_best):.4f}")
-else:
-    _pred = voting_clf_dual.predict(X_test)
-    _pred2 = pd.Series(_pred).apply(lambda x: 1 if x == 8 else 0)
-    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred2):.4f}")
-    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred2):.4f}")
-    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred2):.4f}")
-    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred2):.4f}")
 
 # 添加阈值调整功能以平衡精确率和召回率
 print("\n========== 阈值调整优化 ==========")
@@ -1252,7 +1169,90 @@ print(f"  精确率: {voting_precision:.4f}")
 print(f"  召回率: {voting_recall:.4f}")
 print(f"  F1分数: {voting_f1:.4f}")
 
-# 结束程序
+print('\n========== 加权投票（使用调优后F1作为权重） ==========')
+_w = np.array([rf_f1 if 'rf_f1' in globals() else 0, lgb_f1 if 'lgb_f1' in globals() else 0, xgb_f1 if 'xgb_f1' in globals() else 0], dtype=float)
+if _w.sum() <= 0:
+    _w = np.array([1.0, 1.0, 1.0], dtype=float)
+_w = (_w / _w.sum()).tolist()
+voting_clf_weighted = VotingClassifier(
+    estimators=[('rf', rf_model), ('lgb', lgb_model), ('xgb', xgb_model_top20)],
+    voting='soft',
+    weights=_w
+)
+voting_clf_weighted.fit(X_train_resampled, y_train_resampled)
+_proba_w = None
+if hasattr(voting_clf_weighted, 'predict_proba'):
+    _p = voting_clf_weighted.predict_proba(X_test)
+    if hasattr(voting_clf_weighted, 'classes_') and 8 in voting_clf_weighted.classes_:
+        _idx = list(voting_clf_weighted.classes_).index(8)
+        _proba_w = _p[:, _idx]
+_best_f1_v, _best_t_v = -1.0, 0.5
+if _proba_w is not None:
+    for _t in np.linspace(0.2, 0.7, 26):
+        _pred_opt = (_proba_w >= _t).astype(int)
+        _f1 = f1_score(y_test_2_voting, _pred_opt)
+        if _f1 > _best_f1_v:
+            _best_f1_v, _best_t_v = _f1, _t
+    _pred_best = (_proba_w >= _best_t_v).astype(int)
+    _m_best = confusion_matrix(y_test_2_voting, _pred_best)
+    print(f"权重: {_w}")
+    print(f"最优阈值: {_best_t_v:.2f}, 最优F1: {_best_f1_v:.4f}")
+    print('混淆矩阵：')
+    print(_m_best)
+    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred_best):.4f}")
+    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred_best):.4f}")
+    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred_best):.4f}")
+    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred_best):.4f}")
+else:
+    _pred = voting_clf_weighted.predict(X_test)
+    _pred2 = pd.Series(_pred).apply(lambda x: 1 if x == 8 else 0)
+    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred2):.4f}")
+    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred2):.4f}")
+    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred2):.4f}")
+    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred2):.4f}")
+
+print('\n========== 双模型投票（LightGBM + XGBoost） ==========')
+_w2 = np.array([lgb_f1 if 'lgb_f1' in globals() else 0, xgb_f1 if 'xgb_f1' in globals() else 0], dtype=float)
+if _w2.sum() <= 0:
+    _w2 = np.array([1.0, 1.0], dtype=float)
+_w2 = (_w2 / _w2.sum()).tolist()
+voting_clf_dual = VotingClassifier(
+    estimators=[('lgb', lgb_model), ('xgb', xgb_model_top20)],
+    voting='soft',
+    weights=_w2
+)
+voting_clf_dual.fit(X_train_resampled, y_train_resampled)
+_proba_d = None
+if hasattr(voting_clf_dual, 'predict_proba'):
+    _pd = voting_clf_dual.predict_proba(X_test)
+    if hasattr(voting_clf_dual, 'classes_') and 8 in voting_clf_dual.classes_:
+        _idxd = list(voting_clf_dual.classes_).index(8)
+        _proba_d = _pd[:, _idxd]
+_best_f1_d, _best_t_d = -1.0, 0.5
+if _proba_d is not None:
+    for _t in np.linspace(0.2, 0.7, 26):
+        _pred_opt = (_proba_d >= _t).astype(int)
+        _f1 = f1_score(y_test_2_voting, _pred_opt)
+        if _f1 > _best_f1_d:
+            _best_f1_d, _best_t_d = _f1, _t
+    _pred_best = (_proba_d >= _best_t_d).astype(int)
+    _m_best = confusion_matrix(y_test_2_voting, _pred_best)
+    print(f"权重: {_w2}")
+    print(f"最优阈值: {_best_t_d:.2f}, 最优F1: {_best_f1_d:.4f}")
+    print('混淆矩阵：')
+    print(_m_best)
+    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred_best):.4f}")
+    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred_best):.4f}")
+    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred_best):.4f}")
+    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred_best):.4f}")
+else:
+    _pred = voting_clf_dual.predict(X_test)
+    _pred2 = pd.Series(_pred).apply(lambda x: 1 if x == 8 else 0)
+    print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred2):.4f}")
+    print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred2):.4f}")
+    print(f"召回率 (Recall): {recall_score(y_test_2_voting, _pred2):.4f}")
+    print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred2):.4f}")
+
 print("\n========== 模型集成优化完成 ==========")
 
 # 把准确率: 97.95%
