@@ -43,10 +43,7 @@ import pandas as pd
 import warnings
 import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.special import jn
-from IPython.display import display, clear_output
-import time
+from IPython.display import display
 
 warnings.filterwarnings('ignore')
 matplotlib.rcParams['font.sans-serif']=[u'simHei']
@@ -57,35 +54,18 @@ matplotlib.use('Agg')  # 使用非交互式后端
 import matplotlib.pyplot as plt
 
 ## 数据处理的
-# 处理pandas-profiling的兼容性问题
-try:
-    import pandas_profiling as pp
-except ImportError:
-    try:
-        from ydata_profiling import ProfileReport
-        # 创建一个兼容的别名
-        pp = ProfileReport
-    except ImportError:
-        print("未找到pandas-profiling或ydata-profiling库")
-        pp = None
+# 处理pandas-profiling的兼容性问题（移除未使用的导入）
 
-#缺失值可视化工具
-import missingno as msno
+## 缺失值可视化工具（未使用，移除）
 
 ## 模型预测的
-import sklearn
-from sklearn import linear_model
 from sklearn import preprocessing
-from sklearn.svm import SVR
-from sklearn.ensemble import RandomForestRegressor,GradientBoostingRegressor
 
-## 数据降维处理的
-from sklearn.decomposition import PCA,FastICA,FactorAnalysis,SparsePCA
+## 数据降维处理的（未使用，移除）
 
 ## 处理数据不平衡
 from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import Pipeline as ImbPipeline
+## 仅使用 SMOTE，移除未使用的 RandomUnderSampler 和 ImbPipeline
 # 删除错误的导入
 # from imblearn.combine import 
 
@@ -98,11 +78,10 @@ DASK_AVAILABLE = False
 DASK_CUDA_AVAILABLE = False
 
 ## 参数搜索和评价的
-from sklearn.model_selection import GridSearchCV,cross_val_score,StratifiedKFold,train_test_split
-from sklearn.metrics import mean_squared_error, mean_absolute_error, accuracy_score, classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 from sklearn.metrics import roc_auc_score, average_precision_score  # 添加AUC相关指标
-from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.inspection import permutation_importance
 
@@ -508,8 +487,7 @@ def calculate_all_features_iv(X, y, top_n=10):
     iv_df = pd.DataFrame(iv_values)
     iv_df = iv_df.sort_values('IV', ascending=False).reset_index(drop=True)
     
-    # print(f"\n前{top_n}个最具预测能力的特征:")
-    # print(iv_df.head(top_n))
+    # 可按需要选择前N个特征: iv_df.head(N)
     
     return iv_df
 
