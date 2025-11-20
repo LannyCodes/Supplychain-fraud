@@ -506,8 +506,8 @@ def calculate_all_features_iv(X, y, top_n=10):
     iv_df = pd.DataFrame(iv_values)
     iv_df = iv_df.sort_values('IV', ascending=False).reset_index(drop=True)
     
-    print(f"\n前{top_n}个最具预测能力的特征:")
-    print(iv_df.head(top_n))
+    # print(f"\n前{top_n}个最具预测能力的特征:")
+    # print(iv_df.head(top_n))
     
     return iv_df
 
