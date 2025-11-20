@@ -901,14 +901,15 @@ def _fraud_ap_scorer(estimator, X, y_bin):
 
 _pi_lgb_ap = permutation_importance(
     lgb_model,
-    X_test_sample_top30,
+    X_test_sample,
     y_test_sample_bin,
     n_repeats=3,
     random_state=27,
     scoring=_fraud_ap_scorer,
     n_jobs=1
 )
-_pi_lgb_ap_df = pd.DataFrame({'feature': list(X_test_sample_top30.columns), 'ap_importance': _pi_lgb_ap.importances_mean}).sort_values(by='ap_importance', ascending=False)
+_pi_all_df = pd.DataFrame({'feature': list(X_test_sample.columns), 'ap_importance': _pi_lgb_ap.importances_mean})
+_pi_lgb_ap_df = _pi_all_df[_pi_all_df['feature'].isin(_top30_cols)].sort_values(by='ap_importance', ascending=False)
 print(_pi_lgb_ap_df.head(10))
 
 # 使用XGBoost模型（使用前20个特征）
