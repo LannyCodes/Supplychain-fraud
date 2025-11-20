@@ -206,7 +206,7 @@ y_column = ['Order Status']
 #==================================================
 
 data.drop(drop_columns, axis=1, inplace=True)
-data.info()
+# data.info()
 
 #==================================================
 # Code cell 14
@@ -307,7 +307,7 @@ temp[temp>0]
 
 # data.select_dtypes(include=[object]).columns  
 # data.select_dtypes(exclude=[object]).columns  
-data.info()
+# data.info()
 data.select_dtypes(include=[object]).columns  
 
 #==================================================
@@ -581,7 +581,6 @@ top_3_features = feature_importance_df_xgb.head(3)['feature'].tolist()
 #         # 如果特征名在原始数据中不存在，尝试在编码后的数据中查找
 #         print("特征取值需要查看编码后的数据...")
 
-深入分析前3个最重要特征对欺诈结果的影响
 print("\n========== 前3个最重要特征的欺诈率分析 ==========")
 # 重建原始数据和目标变量的对应关系（使用未过采样的数据）
 X_train_original = X_train
