@@ -561,76 +561,64 @@ print("\n========== 特征IV值分析 ==========")
 iv_df = calculate_all_features_iv(X_train, y_train, top_n=20)
 
 # 打印特征重要性
-print("\n特征重要性 (XGBoost):")
-feature_importance_xgb = xgr_optimized_4.feature_importances_
-feature_names = X_train.columns
-feature_importance_df_xgb = pd.DataFrame({
-    'feature': feature_names,
-    'importance': feature_importance_xgb
-}).sort_values(by='importance', ascending=False)
-print(feature_importance_df_xgb.head(20))
+# print("\n特征重要性 (XGBoost):")
+# feature_importance_xgb = xgr_optimized_4.feature_importances_
+# feature_names = X_train.columns
+# feature_importance_df_xgb = pd.DataFrame({
+#     'feature': feature_names,
+#     'importance': feature_importance_xgb
+# }).sort_values(by='importance', ascending=False)
+# print(feature_importance_df_xgb.head(20))
 
 # 打印前3个最重要特征的取值分布
-print("\n========== 前3个最重要特征的取值分布 ==========")
-top_3_features = feature_importance_df_xgb.head(3)['feature'].tolist()
-for feature in top_3_features:
-    print(f"\n{feature} 特征取值分布:")
-    if feature in data.columns:
-        print(data[feature].value_counts().sort_values(ascending=False))
-    else:
-        # 如果特征名在原始数据中不存在，尝试在编码后的数据中查找
-        print("特征取值需要查看编码后的数据...")
+# print("\n========== 前3个最重要特征的取值分布 ==========")
+# top_3_features = feature_importance_df_xgb.head(3)['feature'].tolist()
+# for feature in top_3_features:
+#     print(f"\n{feature} 特征取值分布:")
+#     if feature in data.columns:
+#         print(data[feature].value_counts().sort_values(ascending=False))
+#     else:
+#         # 如果特征名在原始数据中不存在，尝试在编码后的数据中查找
+#         print("特征取值需要查看编码后的数据...")
 
 # 深入分析前3个最重要特征对欺诈结果的影响
-print("\n========== 前3个最重要特征的欺诈率分析 ==========")
-# 重建原始数据和目标变量的对应关系（使用未过采样的数据）
-X_train_original = X_train
-y_train_original = y_train
+# print("\n========== 前3个最重要特征的欺诈率分析 ==========")
+# # 重建原始数据和目标变量的对应关系（使用未过采样的数据）
+# X_train_original = X_train
+# y_train_original = y_train
 
-# 创建包含原始特征和目标变量的数据框
-train_data_with_target = X_train_original.copy()
-train_data_with_target['Order_Status'] = y_train_original
+# # 创建包含原始特征和目标变量的数据框
+# train_data_with_target = X_train_original.copy()
+# train_data_with_target['Order_Status'] = y_train_original
 
-for feature in top_3_features:
-    print(f"\n{feature} 特征的欺诈率分析:")
-    if feature in data.columns:
-        # 获取原始数据中的特征值
-        feature_values = data.loc[X_train_original.index, feature]
+# for feature in top_3_features:
+#     print(f"\n{feature} 特征的欺诈率分析:")
+#     if feature in data.columns:
+#         # 获取原始数据中的特征值
+#         feature_values = data.loc[X_train_original.index, feature]
         
-        # 计算每个特征值的欺诈率
-        fraud_analysis = pd.DataFrame({
-            'feature_value': feature_values,
-            'order_status': y_train_original
-        })
+#         # 计算每个特征值的欺诈率
+#         fraud_analysis = pd.DataFrame({
+#             'feature_value': feature_values,
+#             'order_status': y_train_original
+#         })
         
-        # 计算每个特征值的总数量和欺诈数量
-        fraud_stats = fraud_analysis.groupby('feature_value').agg({
-            'order_status': ['count', lambda x: sum(x == 8)]
-        }).round(4)
+#         # 计算每个特征值的总数量和欺诈数量
+#         fraud_stats = fraud_analysis.groupby('feature_value').agg({
+#             'order_status': ['count', lambda x: sum(x == 8)]
+#         }).round(4)
         
-        # 重命名列
-        fraud_stats.columns = ['total_count', 'fraud_count']
-        fraud_stats['fraud_rate'] = fraud_stats['fraud_count'] / fraud_stats['total_count']
+#         # 重命名列
+#         fraud_stats.columns = ['total_count', 'fraud_count']
+#         fraud_stats['fraud_rate'] = fraud_stats['fraud_count'] / fraud_stats['total_count']
         
-        # 按欺诈率排序
-        fraud_stats = fraud_stats.sort_values('fraud_rate', ascending=False)
-        print(fraud_stats)
-    else:
-        print("无法找到原始特征值进行分析...")
+#         # 按欺诈率排序
+#         fraud_stats = fraud_stats.sort_values('fraud_rate', ascending=False)
+#         print(fraud_stats)
+#     else:
+#         print("无法找到原始特征值进行分析...")
 
-# 交叉分析：特征与目标变量的关系
-print("\n========== 前3个最重要特征与Order Status的交叉分析 ==========")
-for feature in top_3_features:
-    print(f"\n{feature} 与 Order Status 的交叉分析:")
-    if feature in data.columns:
-        cross_tab = pd.crosstab(data.loc[X_train_original.index, feature], 
-                               y_train_original, 
-                               normalize='index').round(4)
-        # 只显示欺诈类别(8)的比例，并按比例排序
-        fraud_proportion = cross_tab[8].sort_values(ascending=False)
-        print(fraud_proportion)
-    else:
-        print("无法进行交叉分析...")
+
 
 ### 使用XGBoost筛选的前20个重要特征作为统一特征维度
 print("\n========== 使用XGBoost前20个重要特征训练其他模型 ==========")
@@ -987,8 +975,7 @@ print(f"\n最佳模型（基于F1分数）: {best_model} (F1: {models_scores[bes
 
 print('\n========== 特征使用总结 ==========')
 print("✅ 所有模型均使用全部特征")
-print(f"✅ 原始特征数: {X_train.shape[1]} -> 筛选后特征数: {len(top_20_features)}")
-print(f"✅ 特征减少比例: {(1 - len(top_20_features)/X_train.shape[1])*100:.1f}%")
+print(f"✅ 特征数: {X_train.shape[1]}")
 print(f"\n准确率 (Accuracy): {voting_accuracy:.4f}")
 
 # 精确率、召回率、F1分数（针对欺诈类别）
@@ -1137,6 +1124,25 @@ rf_recall = recall_score(y_test_2_voting, rf_pred_2, zero_division=0)
 rf_f1 = f1_score(y_test_2_voting, rf_pred_2, zero_division=0)
 print(f"  RandomForest - 精确率: {rf_precision:.4f}, 召回率: {rf_recall:.4f}, F1分数: {rf_f1:.4f}")
 
+# 阈值调优（RandomForest）
+if hasattr(rf_model, "predict_proba") and hasattr(rf_model, "classes_") and 8 in rf_model.classes_:
+    _rf_proba = rf_model.predict_proba(X_test)
+    _rf_idx = list(rf_model.classes_).index(8)
+    _best_f1, _best_t = -1.0, 0.5
+    for _t in np.linspace(0.2, 0.7, 26):
+        _pred_opt = (_rf_proba[:, _rf_idx] >= _t).astype(int)
+        _f1 = f1_score(y_test_2_voting, _pred_opt)
+        if _f1 > _best_f1:
+            _best_f1, _best_t = _f1, _t
+    _pred_best = (_rf_proba[:, _rf_idx] >= _best_t).astype(int)
+    _m_best = confusion_matrix(y_test_2_voting, _pred_best)
+    print("\nRandomForest阈值调优:")
+    print(f"最优阈值: {_best_t:.2f}, 最优F1: {_best_f1:.4f}")
+    print(_m_best)
+    rf_precision = precision_score(y_test_2_voting, _pred_best)
+    rf_recall = recall_score(y_test_2_voting, _pred_best)
+    rf_f1 = f1_score(y_test_2_voting, _pred_best)
+
 # LightGBM性能
 lgb_pred = lgb_model.predict(X_test)
 # 检查预测结果的分布
@@ -1150,6 +1156,25 @@ lgb_precision = precision_score(y_test_2_voting, lgb_pred_2, zero_division=0)
 lgb_recall = recall_score(y_test_2_voting, lgb_pred_2, zero_division=0)
 lgb_f1 = f1_score(y_test_2_voting, lgb_pred_2, zero_division=0)
 print(f"  LightGBM    - 精确率: {lgb_precision:.4f}, 召回率: {lgb_recall:.4f}, F1分数: {lgb_f1:.4f}")
+
+# 阈值调优（LightGBM）
+if hasattr(lgb_model, "predict_proba") and hasattr(lgb_model, "classes_") and 8 in lgb_model.classes_:
+    _lgb_proba = lgb_model.predict_proba(X_test)
+    _lgb_idx = list(lgb_model.classes_).index(8)
+    _best_f1_l, _best_t_l = -1.0, 0.5
+    for _t in np.linspace(0.2, 0.7, 26):
+        _pred_opt = (_lgb_proba[:, _lgb_idx] >= _t).astype(int)
+        _f1 = f1_score(y_test_2_voting, _pred_opt)
+        if _f1 > _best_f1_l:
+            _best_f1_l, _best_t_l = _f1, _t
+    _pred_best_l = (_lgb_proba[:, _lgb_idx] >= _best_t_l).astype(int)
+    _m_best_l = confusion_matrix(y_test_2_voting, _pred_best_l)
+    print("\nLightGBM阈值调优:")
+    print(f"最优阈值: {_best_t_l:.2f}, 最优F1: {_best_f1_l:.4f}")
+    print(_m_best_l)
+    lgb_precision = precision_score(y_test_2_voting, _pred_best_l)
+    lgb_recall = recall_score(y_test_2_voting, _pred_best_l)
+    lgb_f1 = f1_score(y_test_2_voting, _pred_best_l)
 
 # XGBoost性能（从之前的计算中获取）
 xgb_precision = precision_score(y_test_2, y_pred_2, zero_division=0)
