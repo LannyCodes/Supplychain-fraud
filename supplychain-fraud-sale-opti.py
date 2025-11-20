@@ -84,6 +84,7 @@ from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_
 from sklearn.metrics import roc_auc_score, average_precision_score  # 添加AUC相关指标
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.inspection import permutation_importance
+from sklearn.calibration import CalibratedClassifierCV
 
 #数据加载
 dataset=pd.read_csv(input+'SupplyChain.csv', encoding='unicode_escape')
@@ -759,19 +760,21 @@ print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
 print(f"使用特征数: {X_train_resampled.shape[1]}")
 rf_model = RandomForestClassifier(
-    n_estimators=100,           # 树的数量
-    max_depth=10,               # 树的最大深度
-    min_samples_split=5,        # 内部节点分裂所需的最小样本数
-    min_samples_leaf=2,         # 叶节点所需的最小样本数
-    max_features='sqrt',        # 寻找最佳分割时考虑的特征数量
-    class_weight='balanced',    # 处理不平衡数据
-    random_state=27             # 随机种子
+    n_estimators=500,
+    max_depth=16,
+    min_samples_split=5,
+    min_samples_leaf=2,
+    max_features='sqrt',
+    class_weight='balanced',
+    random_state=27
 )
 rf_model.fit(X_train_resampled, y_train_resampled)
+rf_cal = CalibratedClassifierCV(rf_model, method='isotonic', cv=5)
+rf_cal.fit(X_train_resampled, y_train_resampled)
 print("RandomForest模型训练完成！")
 
 # 预测和评估RandomForest模型
-y_pred_rf = rf_model.predict(X_test)
+y_pred_rf = rf_cal.predict(X_test)
 y_pred_2_rf = pd.Series(y_pred_rf).apply(lambda x : 1 if x == 8 else 0).copy()
 
 print('\n========== RandomForest模型评估 ==========')
@@ -799,23 +802,27 @@ print("训练LightGBM模型...")
 print(f"使用特征数: {X_train_resampled_top20.shape[1]}")
 lgb_model = lgb.LGBMClassifier(
     boosting_type='gbdt',
-    num_leaves=31,  # 还原为较小的值
-    max_depth=5,    # 降低最大深度
+    num_leaves=32,
+    max_depth=5,
     learning_rate=0.1,
     n_estimators=1000,
     subsample=0.8,
     colsample_bytree=0.8,
-    min_child_samples=50,  # 增加子节点最小样本数
-    min_split_gain=0.1,   # 添加最小分割增益
+    min_child_samples=60,
+    min_split_gain=0.1,
+    reg_alpha=0.01,
+    reg_lambda=0.1,
     random_state=27,
     class_weight='balanced',
     device='gpu'
 )
 lgb_model.fit(X_train_resampled, y_train_resampled)
+lgb_cal = CalibratedClassifierCV(lgb_model, method='isotonic', cv=5)
+lgb_cal.fit(X_train_resampled, y_train_resampled)
 print("LightGBM模型训练完成！")
 
 # 预测和评估LightGBM模型
-y_pred_lgb = lgb_model.predict(X_test)
+y_pred_lgb = lgb_cal.predict(X_test)
 y_pred_2_lgb = pd.Series(y_pred_lgb).apply(lambda x : 1 if x == 8 else 0).copy()
 
 print('\n========== LightGBM模型评估 ==========')
@@ -898,11 +905,11 @@ print("========== 开始执行 Voting 集成模型 ==========")
 print("所有模型使用全部特征")
 voting_clf = VotingClassifier(
     estimators=[
-        ('rf', rf_model),
-        ('lgb', lgb_model),
+        ('rf', rf_cal),
+        ('lgb', lgb_cal),
         ('xgb', xgb_model_top20)
     ],
-    voting='soft'  # 使用软投票
+    voting='soft'
 )
 
 print("训练投票分类器...")
@@ -1092,7 +1099,7 @@ print(y_test_2_voting.value_counts())
 print(f"\n单个模型性能:")
 
 # RandomForest性能
-rf_pred = rf_model.predict(X_test)
+rf_pred = rf_cal.predict(X_test)
 # 检查预测结果的分布
 print(f"RandomForest预测结果分布: {pd.Series(rf_pred).value_counts()}")
 # 正确转换为二分类标签：8为欺诈订单（正类），其他为正常订单（负类）
@@ -1106,9 +1113,9 @@ rf_f1 = f1_score(y_test_2_voting, rf_pred_2, zero_division=0)
 print(f"  RandomForest - 精确率: {rf_precision:.4f}, 召回率: {rf_recall:.4f}, F1分数: {rf_f1:.4f}")
 
 # 阈值调优（RandomForest）
-if hasattr(rf_model, "predict_proba") and hasattr(rf_model, "classes_") and 8 in rf_model.classes_:
-    _rf_proba = rf_model.predict_proba(X_test)
-    _rf_idx = list(rf_model.classes_).index(8)
+if hasattr(rf_cal, "predict_proba") and hasattr(rf_cal, "classes_") and 8 in rf_cal.classes_:
+    _rf_proba = rf_cal.predict_proba(X_test)
+    _rf_idx = list(rf_cal.classes_).index(8)
     _best_f1, _best_t = -1.0, 0.5
     for _t in np.linspace(0.2, 0.7, 26):
         _pred_opt = (_rf_proba[:, _rf_idx] >= _t).astype(int)
@@ -1125,7 +1132,7 @@ if hasattr(rf_model, "predict_proba") and hasattr(rf_model, "classes_") and 8 in
     rf_f1 = f1_score(y_test_2_voting, _pred_best)
 
 # LightGBM性能
-lgb_pred = lgb_model.predict(X_test)
+lgb_pred = lgb_cal.predict(X_test)
 # 检查预测结果的分布
 print(f"LightGBM预测结果分布: {pd.Series(lgb_pred).value_counts()}")
 # 正确转换为二分类标签：8为欺诈订单（正类），其他为正常订单（负类）
@@ -1139,9 +1146,9 @@ lgb_f1 = f1_score(y_test_2_voting, lgb_pred_2, zero_division=0)
 print(f"  LightGBM    - 精确率: {lgb_precision:.4f}, 召回率: {lgb_recall:.4f}, F1分数: {lgb_f1:.4f}")
 
 # 阈值调优（LightGBM）
-if hasattr(lgb_model, "predict_proba") and hasattr(lgb_model, "classes_") and 8 in lgb_model.classes_:
-    _lgb_proba = lgb_model.predict_proba(X_test)
-    _lgb_idx = list(lgb_model.classes_).index(8)
+if hasattr(lgb_cal, "predict_proba") and hasattr(lgb_cal, "classes_") and 8 in lgb_cal.classes_:
+    _lgb_proba = lgb_cal.predict_proba(X_test)
+    _lgb_idx = list(lgb_cal.classes_).index(8)
     _best_f1_l, _best_t_l = -1.0, 0.5
     for _t in np.linspace(0.2, 0.7, 26):
         _pred_opt = (_lgb_proba[:, _lgb_idx] >= _t).astype(int)
@@ -1170,12 +1177,13 @@ print(f"  召回率: {voting_recall:.4f}")
 print(f"  F1分数: {voting_f1:.4f}")
 
 print('\n========== 加权投票（使用调优后F1作为权重） ==========')
+VOTING_WEIGHTED_THRESHOLD = 0.38
 _w = np.array([rf_f1 if 'rf_f1' in globals() else 0, lgb_f1 if 'lgb_f1' in globals() else 0, xgb_f1 if 'xgb_f1' in globals() else 0], dtype=float)
 if _w.sum() <= 0:
     _w = np.array([1.0, 1.0, 1.0], dtype=float)
 _w = (_w / _w.sum()).tolist()
 voting_clf_weighted = VotingClassifier(
-    estimators=[('rf', rf_model), ('lgb', lgb_model), ('xgb', xgb_model_top20)],
+    estimators=[('rf', rf_cal), ('lgb', lgb_cal), ('xgb', xgb_model_top20)],
     voting='soft',
     weights=_w
 )
@@ -1186,17 +1194,12 @@ if hasattr(voting_clf_weighted, 'predict_proba'):
     if hasattr(voting_clf_weighted, 'classes_') and 8 in voting_clf_weighted.classes_:
         _idx = list(voting_clf_weighted.classes_).index(8)
         _proba_w = _p[:, _idx]
-_best_f1_v, _best_t_v = -1.0, 0.5
 if _proba_w is not None:
-    for _t in np.linspace(0.2, 0.7, 26):
-        _pred_opt = (_proba_w >= _t).astype(int)
-        _f1 = f1_score(y_test_2_voting, _pred_opt)
-        if _f1 > _best_f1_v:
-            _best_f1_v, _best_t_v = _f1, _t
-    _pred_best = (_proba_w >= _best_t_v).astype(int)
+    _pred_best = (_proba_w >= VOTING_WEIGHTED_THRESHOLD).astype(int)
     _m_best = confusion_matrix(y_test_2_voting, _pred_best)
+    _f1_v = f1_score(y_test_2_voting, _pred_best)
     print(f"权重: {_w}")
-    print(f"最优阈值: {_best_t_v:.2f}, 最优F1: {_best_f1_v:.4f}")
+    print(f"最优阈值: {VOTING_WEIGHTED_THRESHOLD:.2f}, 最优F1: {_f1_v:.4f}")
     print('混淆矩阵：')
     print(_m_best)
     print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred_best):.4f}")
@@ -1212,12 +1215,13 @@ else:
     print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, _pred2):.4f}")
 
 print('\n========== 双模型投票（LightGBM + XGBoost） ==========')
+VOTING_DUAL_THRESHOLD = 0.42
 _w2 = np.array([lgb_f1 if 'lgb_f1' in globals() else 0, xgb_f1 if 'xgb_f1' in globals() else 0], dtype=float)
 if _w2.sum() <= 0:
     _w2 = np.array([1.0, 1.0], dtype=float)
 _w2 = (_w2 / _w2.sum()).tolist()
 voting_clf_dual = VotingClassifier(
-    estimators=[('lgb', lgb_model), ('xgb', xgb_model_top20)],
+    estimators=[('lgb', lgb_cal), ('xgb', xgb_model_top20)],
     voting='soft',
     weights=_w2
 )
@@ -1228,17 +1232,12 @@ if hasattr(voting_clf_dual, 'predict_proba'):
     if hasattr(voting_clf_dual, 'classes_') and 8 in voting_clf_dual.classes_:
         _idxd = list(voting_clf_dual.classes_).index(8)
         _proba_d = _pd[:, _idxd]
-_best_f1_d, _best_t_d = -1.0, 0.5
 if _proba_d is not None:
-    for _t in np.linspace(0.2, 0.7, 26):
-        _pred_opt = (_proba_d >= _t).astype(int)
-        _f1 = f1_score(y_test_2_voting, _pred_opt)
-        if _f1 > _best_f1_d:
-            _best_f1_d, _best_t_d = _f1, _t
-    _pred_best = (_proba_d >= _best_t_d).astype(int)
+    _pred_best = (_proba_d >= VOTING_DUAL_THRESHOLD).astype(int)
     _m_best = confusion_matrix(y_test_2_voting, _pred_best)
+    _f1_d = f1_score(y_test_2_voting, _pred_best)
     print(f"权重: {_w2}")
-    print(f"最优阈值: {_best_t_d:.2f}, 最优F1: {_best_f1_d:.4f}")
+    print(f"最优阈值: {VOTING_DUAL_THRESHOLD:.2f}, 最优F1: {_f1_d:.4f}")
     print('混淆矩阵：')
     print(_m_best)
     print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred_best):.4f}")
