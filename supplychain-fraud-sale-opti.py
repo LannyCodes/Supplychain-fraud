@@ -1079,9 +1079,14 @@ X_train_union = X_train_resampled[union_features]
 X_test_union = X_test[union_features]
 print('\n========== 并集Top30复筛 ==========')
 print(f'特征数: {len(union_features)}')
+
+_const_cols = [c for c in X_train_union.columns if X_train_union[c].nunique() <= 1]
+if len(_const_cols) > 0:
+    X_train_union = X_train_union.drop(columns=_const_cols)
+    X_test_union = X_test_union.drop(columns=_const_cols)
 rf_u = RandomForestClassifier(n_estimators=300,max_depth=10,min_samples_split=5,min_samples_leaf=2,max_features="sqrt",class_weight="balanced",random_state=27)
 rf_u.fit(X_train_union,y_train_resampled)
-lgb_u = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=50,min_split_gain=0.1,random_state=27,class_weight='balanced',device='gpu')
+lgb_u = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=20,min_split_gain=0.0,random_state=27,class_weight='balanced',device='cpu',force_row_wise=True)
 lgb_u.fit(X_train_union,y_train_resampled)
 xgb_u = xgb.XGBClassifier(learning_rate=0.01,n_estimators=1000,max_depth=6,min_child_weight=1,gamma=0,subsample=0.6,colsample_bytree=0.6,reg_alpha=0,reg_lambda=0,objective='multi:softmax',eval_metric='mlogloss',random_state=27,tree_method='gpu_hist',predictor='gpu_predictor',use_label_encoder=False)
 xgb_u.fit(X_train_union,y_train_resampled)
