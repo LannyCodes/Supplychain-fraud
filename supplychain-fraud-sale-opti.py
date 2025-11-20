@@ -520,14 +520,14 @@ X_train, X_test, y_train, y_test = \
         train_test_split(X, y, random_state=2021, stratify=y)
 
 # 使用 SMOTE 对训练集进行过采样，平衡类别
-print("原始训练集类别分布:")
-print(pd.Series(y_train).value_counts())
+# print("原始训练集类别分布:")
+# print(pd.Series(y_train).value_counts())
 
 smote = SMOTE(random_state=2021, k_neighbors=5)
 X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
 
-print("\nSMOTE后训练集类别分布:")
-print(pd.Series(y_train_resampled).value_counts())
+# print("\nSMOTE后训练集类别分布:")
+# print(pd.Series(y_train_resampled).value_counts())
 print(f"\n原始训练集样本数: {len(y_train)}")
 print(f"过采样后训练集样本数: {len(y_train_resampled)}")
 print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
