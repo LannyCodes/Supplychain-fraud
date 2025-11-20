@@ -883,13 +883,13 @@ y_test_sample_bin = y_test.loc[X_test_sample.index].apply(lambda x: 1 if x == 8 
 
 # 仅在增益Top30候选特征上进行置换重要性
 top30_gain_features = _lgb_gain_df['feature'].head(30).tolist()
-_sanitize = lambda s: s.replace(' ', '_').replace('(', '_').replace(')', '_')
-_map = {_sanitize(c): c for c in X_test.columns}
-_top30_cols = [_map[f] for f in top30_gain_features if f in _map]
-_missing = [f for f in top30_gain_features if f not in _map]
+_norm = lambda s: s.replace(' ', '_').replace('(', '_').replace(')', '_').lower()
+_map = {_norm(c): c for c in X_test.columns}
+_top30_cols = [_map[_norm(f)] for f in top30_gain_features if _norm(f) in _map]
+_missing = [f for f in top30_gain_features if _norm(f) not in _map]
 if _missing:
     print("Top30特征在测试集列中未找到:", _missing)
-X_test_sample_top30 = X_test_sample[_top30_cols]
+top30_idx = [X_test_sample.columns.get_loc(c) for c in _top30_cols]
 
 def _fraud_ap_scorer(estimator, X, y_bin):
     if hasattr(estimator, 'predict_proba') and hasattr(estimator, 'classes_') and 8 in estimator.classes_:
