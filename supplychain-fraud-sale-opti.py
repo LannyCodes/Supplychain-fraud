@@ -1060,7 +1060,11 @@ rf_iv = RandomForestClassifier(n_estimators=300,max_depth=10,min_samples_split=5
 rf_iv.fit(X_train_iv,y_train_resampled)
 imp_rf = rf_iv.feature_importances_; names_iv = X_train_iv.columns
 top30_rf = [names_iv[i] for i in np.argsort(imp_rf)[-30:]]
-lgb_iv = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=50,min_split_gain=0.1,random_state=27,class_weight='balanced',device='gpu')
+_const_cols_iv = [c for c in X_train_iv.columns if X_train_iv[c].nunique() <= 1]
+if len(_const_cols_iv) > 0:
+    X_train_iv = X_train_iv.drop(columns=_const_cols_iv)
+    X_test_iv = X_test_iv.drop(columns=_const_cols_iv)
+lgb_iv = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=20,min_split_gain=0.0,random_state=27,class_weight='balanced',device='cpu',force_row_wise=True)
 lgb_iv.fit(X_train_iv,y_train_resampled)
 gain_lgb_iv = lgb_iv.booster_.feature_importance(importance_type='gain')
 top30_lgb = [names_iv[i] for i in np.argsort(gain_lgb_iv)[-30:]]
