@@ -383,9 +383,9 @@ print(f"最终特征数量: {len(feature_cols)}")
 
 # 打印特征数量确认
 print(f"总特征数量: {len(feature_cols)}")
-print("特征列表:")
-for i, col in enumerate(feature_cols):
-    print(f"{i+1:2d}. {col}")
+# print("特征列表:")
+# for i, col in enumerate(feature_cols):
+#     print(f"{i+1:2d}. {col}")
 
 # 特别检查交叉特征是否被包含
 if 'Type_Delivery_Cross' in feature_cols:
@@ -561,18 +561,18 @@ print("\n========== 特征IV值分析 ==========")
 iv_df = calculate_all_features_iv(X_train, y_train, top_n=20)
 
 # 打印特征重要性
-# print("\n特征重要性 (XGBoost):")
-# feature_importance_xgb = xgr_optimized_4.feature_importances_
-# feature_names = X_train.columns
-# feature_importance_df_xgb = pd.DataFrame({
-#     'feature': feature_names,
-#     'importance': feature_importance_xgb
-# }).sort_values(by='importance', ascending=False)
+print("\n特征重要性 (XGBoost):")
+feature_importance_xgb = xgr_optimized_4.feature_importances_
+feature_names = X_train.columns
+feature_importance_df_xgb = pd.DataFrame({
+    'feature': feature_names,
+    'importance': feature_importance_xgb
+}).sort_values(by='importance', ascending=False)
 # print(feature_importance_df_xgb.head(20))
 
-# 打印前3个最重要特征的取值分布
-# print("\n========== 前3个最重要特征的取值分布 ==========")
-# top_3_features = feature_importance_df_xgb.head(3)['feature'].tolist()
+打印前3个最重要特征的取值分布
+print("\n========== 前3个最重要特征的取值分布 ==========")
+top_3_features = feature_importance_df_xgb.head(3)['feature'].tolist()
 # for feature in top_3_features:
 #     print(f"\n{feature} 特征取值分布:")
 #     if feature in data.columns:
@@ -581,42 +581,42 @@ iv_df = calculate_all_features_iv(X_train, y_train, top_n=20)
 #         # 如果特征名在原始数据中不存在，尝试在编码后的数据中查找
 #         print("特征取值需要查看编码后的数据...")
 
-# 深入分析前3个最重要特征对欺诈结果的影响
-# print("\n========== 前3个最重要特征的欺诈率分析 ==========")
-# # 重建原始数据和目标变量的对应关系（使用未过采样的数据）
-# X_train_original = X_train
-# y_train_original = y_train
+深入分析前3个最重要特征对欺诈结果的影响
+print("\n========== 前3个最重要特征的欺诈率分析 ==========")
+# 重建原始数据和目标变量的对应关系（使用未过采样的数据）
+X_train_original = X_train
+y_train_original = y_train
 
-# # 创建包含原始特征和目标变量的数据框
-# train_data_with_target = X_train_original.copy()
-# train_data_with_target['Order_Status'] = y_train_original
+# 创建包含原始特征和目标变量的数据框
+train_data_with_target = X_train_original.copy()
+train_data_with_target['Order_Status'] = y_train_original
 
-# for feature in top_3_features:
-#     print(f"\n{feature} 特征的欺诈率分析:")
-#     if feature in data.columns:
-#         # 获取原始数据中的特征值
-#         feature_values = data.loc[X_train_original.index, feature]
+for feature in top_3_features:
+    print(f"\n{feature} 特征的欺诈率分析:")
+    if feature in data.columns:
+        # 获取原始数据中的特征值
+        feature_values = data.loc[X_train_original.index, feature]
         
-#         # 计算每个特征值的欺诈率
-#         fraud_analysis = pd.DataFrame({
-#             'feature_value': feature_values,
-#             'order_status': y_train_original
-#         })
+        # 计算每个特征值的欺诈率
+        fraud_analysis = pd.DataFrame({
+            'feature_value': feature_values,
+            'order_status': y_train_original
+        })
         
-#         # 计算每个特征值的总数量和欺诈数量
-#         fraud_stats = fraud_analysis.groupby('feature_value').agg({
-#             'order_status': ['count', lambda x: sum(x == 8)]
-#         }).round(4)
+        # 计算每个特征值的总数量和欺诈数量
+        fraud_stats = fraud_analysis.groupby('feature_value').agg({
+            'order_status': ['count', lambda x: sum(x == 8)]
+        }).round(4)
         
-#         # 重命名列
-#         fraud_stats.columns = ['total_count', 'fraud_count']
-#         fraud_stats['fraud_rate'] = fraud_stats['fraud_count'] / fraud_stats['total_count']
+        # 重命名列
+        fraud_stats.columns = ['total_count', 'fraud_count']
+        fraud_stats['fraud_rate'] = fraud_stats['fraud_count'] / fraud_stats['total_count']
         
-#         # 按欺诈率排序
-#         fraud_stats = fraud_stats.sort_values('fraud_rate', ascending=False)
-#         print(fraud_stats)
-#     else:
-#         print("无法找到原始特征值进行分析...")
+        # 按欺诈率排序
+        fraud_stats = fraud_stats.sort_values('fraud_rate', ascending=False)
+        # print(fraud_stats)
+    else:
+        print("无法找到原始特征值进行分析...")
 
 
 
