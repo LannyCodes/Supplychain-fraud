@@ -779,8 +779,8 @@ rf_model = RandomForestClassifier(
     max_samples=0.7
 )
 rf_model.fit(X_train_rf_base, y_train_rf_base)
-rf_cal = CalibratedClassifierCV(rf_model, method='sigmoid', cv='prefit')
-rf_cal.fit(X_cal_rf, y_cal_rf)
+rf_cal = CalibratedClassifierCV(rf_model, method='sigmoid', cv=3)
+rf_cal.fit(X_train_resampled, y_train_resampled)
 print("RandomForest模型训练完成！")
 
 # 预测和评估RandomForest模型
@@ -827,8 +827,8 @@ lgb_model = lgb.LGBMClassifier(
     device='gpu'
 )
 lgb_model.fit(X_train_resampled, y_train_resampled)
-lgb_cal = CalibratedClassifierCV(lgb_model, method='sigmoid', cv='prefit')
-lgb_cal.fit(X_cal_rf, y_cal_rf)
+lgb_cal = CalibratedClassifierCV(lgb_model, method='sigmoid', cv=3)
+lgb_cal.fit(X_train_resampled, y_train_resampled)
 print("LightGBM模型训练完成！")
 
 # 预测和评估LightGBM模型
