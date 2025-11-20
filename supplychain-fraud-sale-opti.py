@@ -759,18 +759,28 @@ else:
 print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
 print(f"使用特征数: {X_train_resampled.shape[1]}")
+X_train_rf_base, X_cal_rf, y_train_rf_base, y_cal_rf = train_test_split(
+    X_train_resampled,
+    y_train_resampled,
+    test_size=0.2,
+    random_state=27,
+    stratify=y_train_resampled
+)
 rf_model = RandomForestClassifier(
-    n_estimators=500,
-    max_depth=16,
+    n_estimators=300,
+    max_depth=12,
     min_samples_split=5,
     min_samples_leaf=2,
     max_features='sqrt',
     class_weight='balanced',
-    random_state=27
+    random_state=27,
+    n_jobs=2,
+    bootstrap=True,
+    max_samples=0.7
 )
-rf_model.fit(X_train_resampled, y_train_resampled)
-rf_cal = CalibratedClassifierCV(rf_model, method='isotonic', cv=5)
-rf_cal.fit(X_train_resampled, y_train_resampled)
+rf_model.fit(X_train_rf_base, y_train_rf_base)
+rf_cal = CalibratedClassifierCV(rf_model, method='sigmoid', cv='prefit')
+rf_cal.fit(X_cal_rf, y_cal_rf)
 print("RandomForest模型训练完成！")
 
 # 预测和评估RandomForest模型
@@ -817,8 +827,8 @@ lgb_model = lgb.LGBMClassifier(
     device='gpu'
 )
 lgb_model.fit(X_train_resampled, y_train_resampled)
-lgb_cal = CalibratedClassifierCV(lgb_model, method='isotonic', cv=5)
-lgb_cal.fit(X_train_resampled, y_train_resampled)
+lgb_cal = CalibratedClassifierCV(lgb_model, method='sigmoid', cv='prefit')
+lgb_cal.fit(X_cal_rf, y_cal_rf)
 print("LightGBM模型训练完成！")
 
 # 预测和评估LightGBM模型
