@@ -103,6 +103,8 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, accuracy_sc
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
 from sklearn.metrics import roc_auc_score, average_precision_score  # 添加AUC相关指标
 from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.inspection import permutation_importance
 
 #数据加载
 dataset=pd.read_csv(input+'SupplyChain.csv', encoding='unicode_escape')
@@ -857,10 +859,6 @@ else:
 
 
 # 导入必要的库
-from sklearn.ensemble import RandomForestClassifier, VotingClassifier
-from sklearn.inspection import permutation_importance
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, roc_auc_score, average_precision_score
-
 # 创建RandomForestClassifier模型
 print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
