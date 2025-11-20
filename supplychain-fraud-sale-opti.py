@@ -538,7 +538,7 @@ y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
 
 # 计算所有特征的IV值
 print("\n========== 特征IV值分析 ==========")
-iv_df = calculate_all_features_iv(X_train, y_train, top_n=20)
+iv_df = calculate_all_features_iv(X_train, y_train)
 
 # 打印特征重要性
 print("\n特征重要性 (XGBoost):")
@@ -1033,7 +1033,7 @@ if hasattr(rf_model, 'feature_importances_'):
 
 
 # 模型性能对比
-iv_df = calculate_all_features_iv(X_train, y_train, top_n=10)
+iv_df = calculate_all_features_iv(X_train, y_train)
 iv_selected = iv_df[iv_df['IV']>=0.02]['Feature'].tolist()
 X_train_iv = X_train_resampled[iv_selected]
 X_test_iv = X_test[iv_selected]
