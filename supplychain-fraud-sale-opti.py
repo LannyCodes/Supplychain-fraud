@@ -538,12 +538,12 @@ xgr_optimized_4 = xgb.XGBClassifier(
     use_label_encoder=False     # 避免标签编码器警告
 )
 
-print("使用所有最佳参数训练最终模型...")
-xgr_optimized_4.fit(X_train_resampled, y_train_resampled)
-y_cal = y_train_resampled
-xgb_cal = CalibratedClassifierCV(xgr_optimized_4, method='sigmoid', cv=3)
-xgb_cal.fit(X_train_resampled, y_cal)
-y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
+# print("使用所有最佳参数训练最终模型...")
+# xgr_optimized_4.fit(X_train_resampled, y_train_resampled)
+# y_cal = y_train_resampled
+# xgb_cal = CalibratedClassifierCV(xgr_optimized_4, method='sigmoid', cv=3)
+# xgb_cal.fit(X_train_resampled, y_cal)
+# y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
 
 # 计算所有特征的IV值
 print("\n========== 特征IV值分析 ==========")
