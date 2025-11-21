@@ -410,7 +410,7 @@ def calculate_woe_iv(dataset, feature, target):
     # 创建交叉表
     df = pd.crosstab(dataset[feature], dataset[target], margins=True)
     print(df)
-    
+
     # 重命名列
     df.rename(columns={0: 'Non-Event', 1: 'Event'}, inplace=True)
     df.rename(index={'All': 'Total'}, inplace=True)
@@ -506,7 +506,7 @@ X_train, X_test, y_train, y_test = \
 # 使用 SMOTE 对训练集进行过采样，平衡类别
 # print("原始训练集类别分布:")
 # print(pd.Series(y_train).value_counts())
-assert 1<0
+
 
 
 smote = SMOTE(random_state=2021, k_neighbors=5)
@@ -549,6 +549,8 @@ y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
 print("\n========== 特征IV值分析 ==========")
 iv_df = calculate_all_features_iv(X_train, y_train)
 
+
+assert 1<0
 # 打印特征重要性
 print("\n特征重要性 (XGBoost):")
 feature_importance_xgb = xgr_optimized_4.feature_importances_
