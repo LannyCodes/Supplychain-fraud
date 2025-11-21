@@ -404,13 +404,13 @@ def calculate_woe_iv(dataset, feature, target):
     iv: 信息值
     """
     print(dataset)
-    print(feature)
-    print(target)
+    print('*'*10)
+
     
     # 创建交叉表
     df = pd.crosstab(dataset[feature], dataset[target], margins=True)
     print(df)
-
+    print('*'*20)
     # 重命名列
     df.rename(columns={0: 'Non-Event', 1: 'Event'}, inplace=True)
     df.rename(index={'All': 'Total'}, inplace=True)
