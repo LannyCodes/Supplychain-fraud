@@ -1059,7 +1059,15 @@ X_train_iv = X_train_resampled[iv_selected]
 X_test_iv = X_test[iv_selected]
 print('\n========== IV≥0.02初筛 ==========')
 print(f'特征数: {len(iv_selected)}')
-rf_iv = RandomForestClassifier(n_estimators=300,max_depth=10,min_samples_split=5,min_samples_leaf=2,max_features="sqrt",class_weight="balanced",random_state=27)
+rf_iv = RandomForestClassifier(
+    n_estimators=300,
+    max_depth=10,
+    min_samples_split=5,
+    min_samples_leaf=2,
+    max_features="sqrt",
+    class_weight="balanced",
+    random_state=27
+)
 rf_iv.fit(X_train_iv,y_train_resampled)
 imp_rf = rf_iv.feature_importances_; names_iv = X_train_iv.columns
 top30_rf = [names_iv[i] for i in np.argsort(imp_rf)[-30:]]
@@ -1067,11 +1075,41 @@ _const_cols_iv = [c for c in X_train_iv.columns if X_train_iv[c].nunique() <= 1]
 if len(_const_cols_iv) > 0:
     X_train_iv = X_train_iv.drop(columns=_const_cols_iv)
     X_test_iv = X_test_iv.drop(columns=_const_cols_iv)
-lgb_iv = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=20,min_split_gain=0.0,random_state=27,class_weight='balanced',device='cpu',force_row_wise=True)
+lgb_iv = lgb.LGBMClassifier(
+    boosting_type='gbdt',
+    num_leaves=31,
+    max_depth=5,
+    learning_rate=0.1,
+    n_estimators=1000,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    min_child_samples=20,
+    min_split_gain=0.0,
+    random_state=27,
+    class_weight='balanced',
+    device='cpu',
+    force_row_wise=True
+)
 lgb_iv.fit(X_train_iv,y_train_resampled)
 gain_lgb_iv = lgb_iv.booster_.feature_importance(importance_type='gain')
 top30_lgb = [names_iv[i] for i in np.argsort(gain_lgb_iv)[-30:]]
-xgb_iv = xgb.XGBClassifier(learning_rate=0.01,n_estimators=1000,max_depth=6,min_child_weight=1,gamma=0,subsample=0.6,colsample_bytree=0.6,reg_alpha=0,reg_lambda=0,objective='multi:softmax',eval_metric='mlogloss',random_state=27,tree_method='gpu_hist',predictor='gpu_predictor',use_label_encoder=False)
+xgb_iv = xgb.XGBClassifier(
+    learning_rate=0.01,
+    n_estimators=1000,
+    max_depth=6,
+    min_child_weight=1,
+    gamma=0,
+    subsample=0.6,
+    colsample_bytree=0.6,
+    reg_alpha=0,
+    reg_lambda=0,
+    objective='multi:softmax',
+    eval_metric='mlogloss',
+    random_state=27,
+    tree_method='gpu_hist',
+    predictor='gpu_predictor',
+    use_label_encoder=False
+)
 xgb_iv.fit(X_train_iv,y_train_resampled)
 imp_xgb_iv = xgb_iv.feature_importances_
 top30_xgb = [names_iv[i] for i in np.argsort(imp_xgb_iv)[-30:]]
@@ -1085,11 +1123,48 @@ _const_cols = [c for c in X_train_union.columns if X_train_union[c].nunique() <=
 if len(_const_cols) > 0:
     X_train_union = X_train_union.drop(columns=_const_cols)
     X_test_union = X_test_union.drop(columns=_const_cols)
-rf_u = RandomForestClassifier(n_estimators=300,max_depth=10,min_samples_split=5,min_samples_leaf=2,max_features="sqrt",class_weight="balanced",random_state=27)
+rf_u = RandomForestClassifier(
+    n_estimators=300,
+    max_depth=10,
+    min_samples_split=5,
+    min_samples_leaf=2,
+    max_features="sqrt",
+    class_weight="balanced",
+    random_state=27)
 rf_u.fit(X_train_union,y_train_resampled)
-lgb_u = lgb.LGBMClassifier(boosting_type='gbdt',num_leaves=31,max_depth=5,learning_rate=0.1,n_estimators=1000,subsample=0.8,colsample_bytree=0.8,min_child_samples=20,min_split_gain=0.0,random_state=27,class_weight='balanced',device='cpu',force_row_wise=True)
+lgb_u = lgb.LGBMClassifier(
+    boosting_type='gbdt',
+    num_leaves=31,
+    max_depth=5,
+    learning_rate=0.1,
+    n_estimators=1000,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    min_child_samples=20,
+    min_split_gain=0.0,
+    random_state=27,
+    class_weight='balanced',
+    device='cpu',
+    force_row_wise=True
+)
 lgb_u.fit(X_train_union,y_train_resampled)
-xgb_u = xgb.XGBClassifier(learning_rate=0.01,n_estimators=1000,max_depth=6,min_child_weight=1,gamma=0,subsample=0.6,colsample_bytree=0.6,reg_alpha=0,reg_lambda=0,objective='multi:softmax',eval_metric='mlogloss',random_state=27,tree_method='gpu_hist',predictor='gpu_predictor',use_label_encoder=False)
+xgb_u = xgb.XGBClassifier(
+    learning_rate=0.01,
+    n_estimators=1000,
+    max_depth=6,
+    min_child_weight=1,
+    gamma=0,
+    subsample=0.6,
+    colsample_bytree=0.6,
+    reg_alpha=0,
+    reg_lambda=0,
+    objective='multi:softmax',
+    eval_metric='mlogloss',
+    random_state=27,
+    tree_method='gpu_hist',
+    predictor='gpu_predictor',
+    use_label_encoder=False
+)
 xgb_u.fit(X_train_union,y_train_resampled)
 pred_rf_u = rf_u.predict(X_test_union); pred_lgb_u = lgb_u.predict(X_test_union); pred_xgb_u = xgb_u.predict(X_test_union)
 y_test_2_union = y_test.apply(lambda x: 1 if x==8 else 0)
