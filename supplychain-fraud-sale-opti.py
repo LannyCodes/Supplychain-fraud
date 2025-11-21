@@ -403,10 +403,13 @@ def calculate_woe_iv(dataset, feature, target):
     woe_df: 包含WOE值的DataFrame
     iv: 信息值
     """
-
+    print(dataset)
+    print(feature)
+    print(target)
     
     # 创建交叉表
     df = pd.crosstab(dataset[feature], dataset[target], margins=True)
+    print(df)
     
     # 重命名列
     df.rename(columns={0: 'Non-Event', 1: 'Event'}, inplace=True)
@@ -503,6 +506,8 @@ X_train, X_test, y_train, y_test = \
 # 使用 SMOTE 对训练集进行过采样，平衡类别
 # print("原始训练集类别分布:")
 # print(pd.Series(y_train).value_counts())
+assert 1<0
+
 
 smote = SMOTE(random_state=2021, k_neighbors=5)
 X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
