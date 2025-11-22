@@ -1274,7 +1274,7 @@ if best_w is not None:
     print(f"召回率 (Recall): {recall_score(y_test_2_voting, pred):.4f}")
     print(f"F1分数 (F1-Score): {f1_score(y_test_2_voting, pred):.4f}")
 else:
-    _pred = voting_clf_weighted.predict(X_test)
+    _pred = voting_clf.predict(X_test)
     _pred2 = pd.Series(_pred).apply(lambda x: 1 if x == 8 else 0)
     print(f"准确率 (Accuracy): {accuracy_score(y_test_2_voting, _pred2):.4f}")
     print(f"精确率 (Precision): {precision_score(y_test_2_voting, _pred2):.4f}")
