@@ -403,14 +403,11 @@ def calculate_woe_iv(dataset, feature, target):
     woe_df: 包含WOE值的DataFrame
     iv: 信息值
     """
-    print(dataset)
-    print('*'*10)
 
     
     # 创建交叉表
     df = pd.crosstab(dataset[feature], dataset[target], margins=True)
-    print(df)
-    print('*'*20)
+
     # 重命名列
     df.rename(columns={0: 'Non-Event', 1: 'Event'}, inplace=True)
     df.rename(index={'All': 'Total'}, inplace=True)
@@ -538,19 +535,17 @@ xgr_optimized_4 = xgb.XGBClassifier(
     use_label_encoder=False     # 避免标签编码器警告
 )
 
-# print("使用所有最佳参数训练最终模型...")
-# xgr_optimized_4.fit(X_train_resampled, y_train_resampled)
-# y_cal = y_train_resampled
-# xgb_cal = CalibratedClassifierCV(xgr_optimized_4, method='sigmoid', cv=3)
-# xgb_cal.fit(X_train_resampled, y_cal)
-# y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
+print("使用所有最佳参数训练最终模型...")
+xgr_optimized_4.fit(X_train_resampled, y_train_resampled)
+y_cal = y_train_resampled
+xgb_cal = CalibratedClassifierCV(xgr_optimized_4, method='sigmoid', cv=3)
+xgb_cal.fit(X_train_resampled, y_cal)
+y_pred_optimized_4 = xgr_optimized_4.predict(X_test)
 
 # 计算所有特征的IV值
 print("\n========== 特征IV值分析 ==========")
 iv_df = calculate_all_features_iv(X_train, y_train)
 
-
-assert 1<0
 # 打印特征重要性
 print("\n特征重要性 (XGBoost):")
 feature_importance_xgb = xgr_optimized_4.feature_importances_
@@ -562,17 +557,6 @@ feature_importance_df_xgb = pd.DataFrame({
 # print(feature_importance_df_xgb.head(20))
 
 
-print("\n========== 前3个最重要特征的取值分布 ==========")
-top_3_features = feature_importance_df_xgb.head(3)['feature'].tolist()
-# for feature in top_3_features:
-#     print(f"\n{feature} 特征取值分布:")
-#     if feature in data.columns:
-#         print(data[feature].value_counts().sort_values(ascending=False))
-#     else:
-#         # 如果特征名在原始数据中不存在，尝试在编码后的数据中查找
-#         print("特征取值需要查看编码后的数据...")
-
-print("\n========== 前3个最重要特征的欺诈率分析 ==========")
 # 重建原始数据和目标变量的对应关系（使用未过采样的数据）
 X_train_original = X_train
 y_train_original = y_train
@@ -580,34 +564,6 @@ y_train_original = y_train
 # 创建包含原始特征和目标变量的数据框
 train_data_with_target = X_train_original.copy()
 train_data_with_target['Order_Status'] = y_train_original
-
-for feature in top_3_features:
-    print(f"\n{feature} 特征的欺诈率分析:")
-    if feature in data.columns:
-        # 获取原始数据中的特征值
-        feature_values = data.loc[X_train_original.index, feature]
-        
-        # 计算每个特征值的欺诈率
-        fraud_analysis = pd.DataFrame({
-            'feature_value': feature_values,
-            'order_status': y_train_original
-        })
-        
-        # 计算每个特征值的总数量和欺诈数量
-        fraud_stats = fraud_analysis.groupby('feature_value').agg({
-            'order_status': ['count', lambda x: sum(x == 8)]
-        }).round(4)
-        
-        # 重命名列
-        fraud_stats.columns = ['total_count', 'fraud_count']
-        fraud_stats['fraud_rate'] = fraud_stats['fraud_count'] / fraud_stats['total_count']
-        
-        # 按欺诈率排序
-        fraud_stats = fraud_stats.sort_values('fraud_rate', ascending=False)
-        # print(fraud_stats)
-    else:
-        print("无法找到原始特征值进行分析...")
-
 
 
 ### 使用XGBoost筛选的前20个重要特征作为统一特征维度
@@ -643,7 +599,6 @@ y_pred_2 = pd.Series(y_pred_optimized_4).apply(lambda x : 1 if x ==8 else 0).cop
 pd.Series(y_pred_2).value_counts()
 
 # 混淆矩阵
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, classification_report
 m = confusion_matrix(y_test_2, y_pred_2)
 print('\n混淆矩阵：')
 print(m)
@@ -760,8 +715,6 @@ if y_proba_fraud is not None:
 
 else:
     print("无法进行阈值调整，模型不支持预测概率")
-
-# 结束程序
 
 
 # 导入必要的库
