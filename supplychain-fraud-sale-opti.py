@@ -209,6 +209,16 @@ drop_features = ['Order Status',
                  'order date (DateOrders)', 'shipping date (DateOrders)'
                 ]
 
+# SMOTENC 的名义特征处理代价随类别基数增长，姓名、街道、商品名这类准ID字段基数达万级：
+# 既会撑爆采样阶段的内存，又在线上必然遇到未出现过的取值、只带来过拟合，因此直接剔除出特征集
+SMOTENC_MAX_CARDINALITY = 100
+high_cardinality_cols = [
+    column for column in astype_columns
+    if column in data2.columns and int(data2[column].nunique()) > SMOTENC_MAX_CARDINALITY
+]
+print(f"高基数分类特征（基数>{SMOTENC_MAX_CARDINALITY}，已剔除出特征集）: {high_cardinality_cols}")
+drop_features = drop_features + high_cardinality_cols
+
 print("使用全部特征进行训练...")
 feature_cols = [column for column in data2.columns if column not in drop_features]
 
@@ -217,6 +227,7 @@ cat_feature_cols = [column for column in feature_cols if column in astype_column
 num_feature_cols = [column for column in feature_cols if column not in astype_columns]
 print(f"分类特征数量: {len(cat_feature_cols)}")
 print(f"数值特征数量: {len(num_feature_cols)}")
+print(f"SMOTENC名义特征及其基数: {[(column, int(data2[column].nunique())) for column in cat_feature_cols]}")
 
 # 打印调试信息
 print(f"原始特征数量: {data2.shape[1]}")
@@ -353,6 +364,7 @@ X_train, X_test, y_train, y_test = \
         train_test_split(X, y, random_state=2021, stratify=y)
 
 # 使用 SMOTENC 对训练集进行过采样，平衡类别（分类特征按名义特征处理，不参与数值插值）
+# cat_feature_cols 已排除高基数准ID字段，名义特征个数与类别基数均保持在低规模
 cat_feature_idx = [feature_cols.index(column) for column in cat_feature_cols]
 smote_nc = SMOTENC(categorical_features=cat_feature_idx, random_state=2021, k_neighbors=5)
 X_train_resampled, y_train_resampled = smote_nc.fit_resample(X_train, y_train)
