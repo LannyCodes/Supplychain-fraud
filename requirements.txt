@@ -3,8 +3,10 @@
 # 2. 版本按 Python 3.10-3.13 均提供官方 wheel 的版本线选定。
 #    此前 numpy==1.24.3 等 2023 年版本没有 Python 3.12/3.13 的 wheel，
 #    在 Python 3.12+ 环境（本机为 3.13）安装会报 No matching distribution found。
-# 3. Kaggle 上请勿直接执行 pip install -r requirements.txt，避免覆盖镜像自带环境；
-#    如需与 Kaggle 环境完全一致的版本清单，在 Notebook 中运行：
+# 3. 本文件用于本地或干净虚拟环境复现，Kaggle 上不要执行本文件的安装：
+#    Kaggle 默认关闭 Internet，pip 无法访问 PyPI 会报 No matching distribution found；
+#    即使开启 Internet，安装也会覆盖镜像自带环境（脚本在 Kaggle 上无需安装依赖即可运行）。
+#    如需与 Kaggle 环境完全一致的版本清单，在 Notebook 中运行并将输出回填本文件：
 #    !pip freeze | grep -iE "^(numpy|pandas|scipy|matplotlib|seaborn|scikit-learn|xgboost|lightgbm|imbalanced-learn|missingno|ipython)=="
 # 4. 各版本与代码用法的兼容性：
 #    - xgboost 2.x：仍接受 gpu_hist / gpu_predictor / use_label_encoder 写法（仅提示弃用警告，

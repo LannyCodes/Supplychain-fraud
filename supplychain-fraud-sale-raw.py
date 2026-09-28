@@ -91,6 +91,13 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 import lightgbm as lgb
 import xgboost as xgb
 
+# XGBoost 2.0 起改用 device 参数指定设备（3.x 移除了 gpu_hist 与 predictor 参数），
+# 按版本自动选择 GPU 参数，保证旧镜像（1.x）与最新镜像（2.x/3.x）均可运行
+if int(xgb.__version__.split('.')[0]) >= 2:
+    XGB_GPU_PARAMS = {'tree_method': 'hist', 'device': 'cuda'}
+else:
+    XGB_GPU_PARAMS = {'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
+
 ## 参数搜索和评价
 from sklearn.model_selection import GridSearchCV,cross_val_score,StratifiedKFold,train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, accuracy_score, classification_report
@@ -914,8 +921,7 @@ xgr = xgb.XGBClassifier(learning_rate=0.1,
                         colsample_bytree=0.8,      # 随机选择80%特征建立决策树
                         objective='multi:softmax', # 指定损失函数
                         random_state=27,           # 随机数
-                        tree_method='gpu_hist',    # 使用GPU加速
-                        predictor='gpu_predictor'  # 使用GPU进行预测
+                        **XGB_GPU_PARAMS           # GPU 参数按 xgboost 版本自动适配
                         )
 
 # 使用 SMOTE 平衡后的数据训练
@@ -1009,7 +1015,8 @@ print('\n========== LogisticRegression 模型评估 ==========')
 # LR = sklearn.linear_model.LogisticRegression(multi_class="multinomial", solver="newton-cg", max_iter=1000)
 
 # 多分类，添加 class_weight='balanced' 处理不平衡数据
-LR = sklearn.linear_model.LogisticRegression(multi_class="multinomial", solver="newton-cg", max_iter=1000, class_weight='balanced') 
+# 新版 scikit-learn（1.7+）已移除 multi_class 参数，newton-cg 求解器本身即多分类策略
+LR = sklearn.linear_model.LogisticRegression(solver="newton-cg", max_iter=1000, class_weight='balanced') 
 
 reg = LR.fit(X_train, y_train)
 reg.score(X_train, y_train)

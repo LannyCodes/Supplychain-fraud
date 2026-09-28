@@ -35,6 +35,13 @@ from imblearn.over_sampling import SMOTENC
 import lightgbm as lgb
 import xgboost as xgb
 
+# XGBoost 2.0 起改用 device 参数指定设备（3.x 移除了 gpu_hist 与 predictor 参数），
+# 按版本自动选择 GPU 参数，保证旧镜像（1.x）与最新镜像（2.x/3.x）均可运行
+if int(xgb.__version__.split('.')[0]) >= 2:
+    XGB_GPU_PARAMS = {'tree_method': 'hist', 'device': 'cuda'}
+else:
+    XGB_GPU_PARAMS = {'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
+
 # 移除Dask相关库导入，因为Kaggle环境不支持分布式计算
 DASK_AVAILABLE = False
 DASK_CUDA_AVAILABLE = False
@@ -388,9 +395,7 @@ xgr_optimized_4 = xgb.XGBClassifier(
     objective='multi:softprob',
     eval_metric='mlogloss',
     random_state=27,
-    tree_method='gpu_hist',
-    predictor='gpu_predictor',
-    use_label_encoder=False     # 避免标签编码器警告
+    **XGB_GPU_PARAMS,           # GPU 参数按 xgboost 版本自动适配
 )
 
 print("使用所有最佳参数训练最终模型...")
@@ -642,7 +647,13 @@ lgb_model = lgb.LGBMClassifier(
     class_weight='balanced',
     device='gpu'
 )
-lgb_model.fit(X_train_resampled, y_train_resampled)
+try:
+    lgb_model.fit(X_train_resampled, y_train_resampled)
+except Exception as e:
+    # 新镜像的 LightGBM 可能未编译 GPU 支持，回退 CPU 重新训练
+    print(f"LightGBM GPU训练失败（{e}），回退CPU重新训练...")
+    lgb_model.set_params(device='cpu')
+    lgb_model.fit(X_train_resampled, y_train_resampled)
 lgb_cal = CalibratedClassifierCV(lgb_model, method='sigmoid', cv=3)
 lgb_cal.fit(X_train_resampled, y_train_resampled)
 print("LightGBM模型训练完成！")
@@ -916,9 +927,7 @@ xgb_iv = xgb.XGBClassifier(
     objective='multi:softmax',
     eval_metric='mlogloss',
     random_state=27,
-    tree_method='gpu_hist',
-    predictor='gpu_predictor',
-    use_label_encoder=False
+    **XGB_GPU_PARAMS            # GPU 参数按 xgboost 版本自动适配
 )
 xgb_iv.fit(X_train_iv,y_train_resampled)
 imp_xgb_iv = xgb_iv.feature_importances_
@@ -971,9 +980,7 @@ xgb_u = xgb.XGBClassifier(
     objective='multi:softmax',
     eval_metric='mlogloss',
     random_state=27,
-    tree_method='gpu_hist',
-    predictor='gpu_predictor',
-    use_label_encoder=False
+    **XGB_GPU_PARAMS            # GPU 参数按 xgboost 版本自动适配
 )
 xgb_u.fit(X_train_union,y_train_resampled)
 pred_rf_u = rf_u.predict(X_test_union); pred_lgb_u = lgb_u.predict(X_test_union); pred_xgb_u = xgb_u.predict(X_test_union)

@@ -49,10 +49,12 @@
 
 ## 环境依赖
 
-项目依赖库列表请参见 [requirements.txt](file:///Users/pro/Downloads/Supplychain-fraud/requirements.txt) 文件。
+项目依赖库列表请参见 [requirements.txt](file:///Users/pro/Downloads/Supplychain-fraud/requirements.txt) 文件（锁定确定版本，用于本地或干净虚拟环境复现）。
 
-使用以下命令安装依赖：
+- **在 Kaggle 上运行**：无需安装任何依赖。Kaggle 镜像已预装 numpy、pandas、scikit-learn、xgboost、lightgbm、imbalanced-learn、matplotlib、seaborn 等所需库，直接在 Notebook 中运行脚本即可。Kaggle 默认关闭 Internet（Settings → Internet），此时执行 pip install 会因无法访问 PyPI 而报 "No matching distribution found"，且安装还会覆盖镜像自带环境，因此不需要执行。
+- **在本地或全新虚拟环境运行**（Python 3.10-3.13）：
 ```bash
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
