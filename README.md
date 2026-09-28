@@ -13,23 +13,24 @@
 ## 主要功能
 
 1. **数据清洗与预处理**
-   - 处理缺失值和异常值
+   - 处理缺失值（Customer Lname、Customer Zipcode按众数填充）
    - 数据类型转换
-   - 时间特征提取（年、月、星期、小时、季度等）
+   - 时间特征提取（年、月、星期、小时）
 
 2. **特征工程**
-   - 从订单日期和发货日期中提取多维度时间特征
-   - 类别特征编码（独热编码、标签编码）
-   - 特征重要性分析和筛选
+   - 从订单日期和发货日期中提取多维度时间特征（年、月、星期、小时，共8个）
+   - 类别特征编码：类别字段统一使用LabelEncoder标签编码
+   - 构建交叉特征（Type × Delivery Status）
+   - 特征重要性分析和筛选；最终参与训练的特征共55个（20个分类特征 + 35个数值特征）
 
 3. **数据不平衡处理**
-   - 多种过采样技术：SMOTE、BorderlineSMOTE、ADASYN
-   - 混合采样方法：SMOTEENN（SMOTE + Edited Nearest Neighbors）
-   - 异常检测方法：Isolation Forest、One-Class SVM
+   - SMOTENC过采样：优化版脚本使用（分类特征按名义特征处理、数值特征参与插值，适配分类/数值混合特征）
+   - SMOTE过采样：基础版脚本使用；原始数据版脚本不使用SMOTE
+   - 异常检测方法：Isolation Forest、One-Class SVM（sale.py附加实验）
    - 类别权重调整（class_weight='balanced'）
 
 4. **模型训练与评估**
-   - 实现8种机器学习算法进行对比：
+   - 实现9种机器学习算法进行对比：
      - Gaussian Naive Bayes
      - Linear SVC
      - K-Nearest Neighbors (KNN)
@@ -57,7 +58,10 @@ pip install -r requirements.txt
 ## 使用方法
 
 1. 将数据集 `SupplyChain.csv` 放置在 `/kaggle/input/source/` 目录下（或修改脚本中的路径）
-2. 运行 [supplychain-fraud-sale.py](file:///Users/pro/Downloads/Supplychain-fraud/supplychain-fraud-sale.py) 脚本或在 Jupyter Notebook 中逐个执行代码单元
+2. 运行脚本或在 Jupyter Notebook 中逐个执行代码单元：
+   - [supplychain-fraud-sale-opti.py](file:///Users/pro/Downloads/Supplychain-fraud/supplychain-fraud-sale-opti.py)：优化版（交叉特征 + SMOTENC过采样），推荐
+   - [supplychain-fraud-sale.py](file:///Users/pro/Downloads/Supplychain-fraud/supplychain-fraud-sale.py)：基础版（SMOTE + 异常检测实验）
+   - [supplychain-fraud-sale-raw.py](file:///Users/pro/Downloads/Supplychain-fraud/supplychain-fraud-sale-raw.py)：原始数据版（不使用SMOTE）
 
 ## 结果
 
@@ -179,9 +183,10 @@ best_score_1 = grid_search_1.best_score_
 
 ### 新增功能
 - **GPU加速支持**：XGBoost、LightGBM和PyTorch模型全面支持GPU加速，训练效率提升3-5倍
-- **PyTorch Logistic Regression**：新增PyTorch实现的多分类逻辑回归，支持自定义损失函数和梯度优化
+- **PyTorch Logistic Regression**：新增PyTorch实现的二分类逻辑回归，支持自定义损失函数和梯度优化
 - **AUC评估指标**：新增AUC-ROC和AUC-PR评估，更适合不平衡数据集的模型性能评估
 - **异常检测方法**：集成Isolation Forest和One-Class SVM，提供无监督欺诈检测方案
+- **SMOTENC过采样**：优化版脚本由SMOTE切换为SMOTENC，分类特征按名义特征处理；本文档中的模型指标为切换前的历史结果，重新训练后将更新
 
 ### 模型性能对比
 | 模型 | 准确率 | 精确率 | 召回率 | F1分数 | AUC-ROC | AUC-PR |
@@ -192,10 +197,10 @@ best_score_1 = grid_search_1.best_score_
 | PyTorch LR | 97.82% | 82.15% | 85.67% | 83.87% | 0.889 | 0.521 |
 
 ### 技术亮点
-- **多维度不平衡处理**：对比SMOTE、BorderlineSMOTE、ADASYN、SMOTEENN等多种采样策略
+- **不平衡数据处理**：SMOTENC混合类型过采样、class_weight='balanced'类别权重、Isolation Forest/One-Class SVM异常检测
 - **GPU加速优化**：tree_method='gpu_hist'（XGBoost）、device='gpu'（LightGBM）、CUDA张量（PyTorch）
-- **模型解释性**：特征重要性分析、SHAP值计算、决策路径可视化
-- **生产级部署**：模型序列化、预测概率输出、阈值动态调整
+- **模型解释性**：特征重要性分析、IV值分析
+- **概率输出与阈值调优**：predict_proba概率输出、基于F1分数的最佳阈值动态调整
 
 ### 代码质量提升
 - 修复了AUC计算中的变量名错误（neigh → clf）

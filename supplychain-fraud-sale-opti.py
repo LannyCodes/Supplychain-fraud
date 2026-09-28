@@ -1,41 +1,13 @@
-#==================================================
-# Code cell 1
-#==================================================
-
-# This Python 3 environment comes with many helpful analytics libraries installed
-# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
-# For example, here's several helpful packages to load
-
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-
-# Input data files are available in the read-only "../input/" directory
-# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
 
 import os
 for dirname, _, filenames in os.walk('/kaggle/input'):
     for filename in filenames:
         print(os.path.join(dirname, filename))
 
-# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
-# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
-
-#==================================================
-# Code cell 2
-#==================================================
-
-
-
-#==================================================
-# Code cell 3
-#==================================================
-
 input = '/kaggle/input/source/'  # 修改为正确的数据集路径
 output = '/kaggle/working/'  # 输出路径保持不变
-
-#==================================================
-# Code cell 4
-#==================================================
 
 ## 基础工具
 import numpy as np
@@ -53,27 +25,17 @@ import matplotlib
 matplotlib.use('Agg')  # 使用非交互式后端
 import matplotlib.pyplot as plt
 
-## 数据处理的
-# 处理pandas-profiling的兼容性问题（移除未使用的导入）
-
-## 缺失值可视化工具（未使用，移除）
-
 ## 模型预测的
 from sklearn import preprocessing
 
-## 数据降维处理的（未使用，移除）
-
 ## 处理数据不平衡
-from imblearn.over_sampling import SMOTE
-## 仅使用 SMOTE，移除未使用的 RandomUnderSampler 和 ImbPipeline
-# 删除错误的导入
-# from imblearn.combine import 
+from imblearn.over_sampling import SMOTENC
+## 使用 SMOTENC（适配混合类型特征），移除未使用的 RandomUnderSampler 和 ImbPipeline
 
 import lightgbm as lgb
 import xgboost as xgb
 
 # 移除Dask相关库导入，因为Kaggle环境不支持分布式计算
-# 将DASK_AVAILABLE和DASK_CUDA_AVAILABLE设置为False
 DASK_AVAILABLE = False
 DASK_CUDA_AVAILABLE = False
 
@@ -92,72 +54,31 @@ dataset=pd.read_csv(input+'SupplyChain.csv', encoding='unicode_escape')
 # 打印Type、Delivery Status和Late_delivery_risk的取值
 print("========== 特征取值分析 ==========")
 print("\nType字段取值:")
-# print(dataset['Type'].value_counts())
 
 print("\nDelivery Status字段取值:")
-# print(dataset['Delivery Status'].value_counts())
 
 if 'Late delivery risk' in dataset.columns:
     print("\nLate delivery risk字段取值:")
-    # print(dataset['Late delivery risk'].value_counts())
 elif 'Late_delivery_risk' in dataset.columns:
     print("\nLate_delivery_risk字段取值:")
-    # print(dataset['Late_delivery_risk'].value_counts())
-
-#==================================================
-# Code cell 6
-#==================================================
 
 data = dataset.copy()
-
-#==================================================
-# Code cell 7
-#==================================================
 
 # 18万比订单，53个特征
 print(data.shape)
 temp = data.isnull().sum()
-# temp[temp>0]
-
-#==================================================
-# Code cell 8
-#==================================================
 
 data['Customer Lname'].value_counts() #Smith        64104
 data['Customer Lname'].fillna(data['Customer Lname'].mode()[0], inplace=True)
 
-#==================================================
-# Code cell 9
-#==================================================
-
 data['Customer Zipcode'].value_counts()
 data['Customer Zipcode'].fillna(data['Customer Zipcode'].mode()[0], inplace=True)
 
-#==================================================
-# Code cell 10
-#==================================================
-
 data.select_dtypes(exclude=[object]).columns 
-
-#==================================================
-# Code cell 11
-#==================================================
 
 #将Firs tName 与LastName进行合并=>Full Name 
 data['Customer Full Name'] = data['Customer Fname'] + data['Customer Lname']
 data[['Customer Full Name', 'Customer Fname', 'Customer Lname']]
-
-#==================================================
-# Code cell 12
-#==================================================
-
-
-# df = dataset['Customer State'].astype('category').copy()  # Categorize!
-# df
-
-# 选择需要处理的object columns
-# dataset.select_dtypes(include=[object]).columns  
-# dataset.select_dtypes(exclude=[object]).columns  
 
 # 转换格式 data['Customer State'].astype('category')
 astype_columns = ['Type', 'Delivery Status', 'Category Name', 'Customer City', 'Customer Country', 'Customer Fname', 'Customer Lname', 
@@ -181,29 +102,13 @@ feature_columns = ['order date (DateOrders)', 'shipping date (DateOrders)']
 # y值
 y_column = ['Order Status']
 
-
-
-#==================================================
-# Code cell 13
-#==================================================
-
 data.drop(drop_columns, axis=1, inplace=True)
-# data.info()
-
-#==================================================
-# Code cell 14
-#==================================================
 
 #  order date (DateOrders)
 #按照不同的时间维度（年，月，星期，小时）的趋势
-#data[['order date (DateOrders)']]
 #创建时间影索引
 temp = pd.DatetimeIndex(data['order date (DateOrders)'])
 
-
-#==================================================
-# Code cell 15
-#==================================================
 
 # order date (DateOrders) 字段中的时间多尺度 year, month, weekday, hour, month_year
 data['order_year'] = temp.year
@@ -212,10 +117,6 @@ data['order_week_day'] = temp.weekday
 data['order_hour'] = temp.hour
 #data['order_month_year'] = temp.to_period('M')  auto-sklearn unsported
 
-
-#==================================================
-# Code cell 16
-#==================================================
 
 # 对销售额进行探索，按照不同的时间维度（年，月，星期，小时）的趋势
 plt.subplot(4, 2, 1)
@@ -234,20 +135,11 @@ plt.subplot(4, 2, 4)
 df_month = data.groupby('order_month')
 df_month['Sales'].mean().plot(figsize=(12, 12), title='Average sales in Months')
 
-#==================================================
-# Code cell 17
-#==================================================
-
 #  shipping date (DateOrders)
 #按照不同的时间维度（年，月，星期，小时）的趋势
-#data[['shipping date (DateOrders)']]
 #创建时间影索引
 temp = pd.DatetimeIndex(data['shipping date (DateOrders)'])
 
-
-#==================================================
-# Code cell 18
-#==================================================
 
 # shipping date (DateOrders) 字段中的时间多尺度 year, month, weekday, hour, month_year
 data['shipping_year'] = temp.year
@@ -255,10 +147,6 @@ data['shipping_month'] = temp.month
 data['shipping_week_day'] = temp.weekday
 data['shipping_hour'] = temp.hour
 # data['shipping_month_year'] = temp.to_period('M')    auto-sklearn unsported
-
-#==================================================
-# Code cell 19
-#==================================================
 
 # 先创建交叉特征，再进行类别转换
 # 添加Type和Delivery Status的交叉特征
@@ -274,32 +162,14 @@ if 'Type_Delivery_Cross' not in astype_columns:
 for column in astype_columns:
     data[column] = data[column].astype('category')
 
-#==================================================
-# Code cell 20
-#==================================================
-
 # 18万比订单，53个特征
 print(data.shape)
 temp = data.isnull().sum()
 temp[temp>0]
 
-#==================================================
-# Code cell 21
-#==================================================
-
-# data.select_dtypes(include=[object]).columns  
-# data.select_dtypes(exclude=[object]).columns  
-# data.info()
 data.select_dtypes(include=[object]).columns  
 
-#==================================================
-# Code cell 22
-#==================================================
-
 #  批量Labels encoding:
-
-# preprocessing.LabelBinarizer
-# preprocessing.LabelEncoder
 
 data2 = data.copy()
 
@@ -310,28 +180,12 @@ for col, clf in clfs.items():
     data2[col] = clfs[col].fit_transform(data2[col])
 
 # 标签反转演示
-# for col, clf in clfs.items():
-#     display(col, clfs[col].inverse_transform([0]))
-
-#==================================================
-# Code cell 23
-#==================================================
-
-# 标签反转演示
 display("Order Status", clfs["Order Status"].inverse_transform([0,1,2,3,4,5,6,7,8]))
 
 display("Order Status", clfs["Order Status"].inverse_transform([8]))
 
-#==================================================
-# Code cell 25
-#==================================================
-
 display(data['Order Status'].value_counts())
 data['Order Status'].value_counts().plot.bar()
-
-#==================================================
-# Code cell 26
-#==================================================
 
 #  切分训练集、测试集
 
@@ -356,18 +210,19 @@ drop_features = ['Order Status',
                 ]
 
 print("使用全部特征进行训练...")
-# 使用全部特征进行训练
 feature_cols = [column for column in data2.columns if column not in drop_features]
+
+# 统计参与训练的分类特征与数值特征数量
+cat_feature_cols = [column for column in feature_cols if column in astype_columns]
+num_feature_cols = [column for column in feature_cols if column not in astype_columns]
+print(f"分类特征数量: {len(cat_feature_cols)}")
+print(f"数值特征数量: {len(num_feature_cols)}")
 
 # 打印调试信息
 print(f"原始特征数量: {data2.shape[1]}")
 print(f"最终特征数量: {len(feature_cols)}")
 
-# 打印特征数量确认
 print(f"总特征数量: {len(feature_cols)}")
-# print("特征列表:")
-# for i, col in enumerate(feature_cols):
-#     print(f"{i+1:2d}. {col}")
 
 # 特别检查交叉特征是否被包含
 if 'Type_Delivery_Cross' in feature_cols:
@@ -478,7 +333,6 @@ def calculate_all_features_iv(X, y):
                 _, iv = calculate_woe_iv(pd.DataFrame({feature: X[feature], 'target': y_binary}), feature, 'target')
             
             iv_values.append({'Feature': feature, 'IV': iv})
-            # print(f"特征 '{feature}' 的IV值: {iv:.4f}")
             
         except Exception as e:
             print(f"计算特征 '{feature}' 的IV值时出错: {e}")
@@ -492,25 +346,17 @@ def calculate_all_features_iv(X, y):
     
     return iv_df
 
-# 转换为二分类，需要修改模型
 # "SUSPECTED_FRAUD" --> 8
-# y_2 = y.apply(lambda x : 1 if x == 8 else 0).copy()
 
 # 使用 stratify 保证训练集和测试集中类别比例一致
 X_train, X_test, y_train, y_test = \
         train_test_split(X, y, random_state=2021, stratify=y)
 
-# 使用 SMOTE 对训练集进行过采样，平衡类别
-# print("原始训练集类别分布:")
-# print(pd.Series(y_train).value_counts())
+# 使用 SMOTENC 对训练集进行过采样，平衡类别（分类特征按名义特征处理，不参与数值插值）
+cat_feature_idx = [feature_cols.index(column) for column in cat_feature_cols]
+smote_nc = SMOTENC(categorical_features=cat_feature_idx, random_state=2021, k_neighbors=5)
+X_train_resampled, y_train_resampled = smote_nc.fit_resample(X_train, y_train)
 
-
-
-smote = SMOTE(random_state=2021, k_neighbors=5)
-X_train_resampled, y_train_resampled = smote.fit_resample(X_train, y_train)
-
-# print("\nSMOTE后训练集类别分布:")
-# print(pd.Series(y_train_resampled).value_counts())
 print(f"\n原始训练集样本数: {len(y_train)}")
 print(f"过采样后训练集样本数: {len(y_train_resampled)}")
 print(f"增加的样本数: {len(y_train_resampled) - len(y_train)}")
@@ -554,9 +400,6 @@ feature_importance_df_xgb = pd.DataFrame({
     'feature': feature_names,
     'importance': feature_importance_xgb
 }).sort_values(by='importance', ascending=False)
-# print(feature_importance_df_xgb.head(20))
-
-
 # 重建原始数据和目标变量的对应关系（使用未过采样的数据）
 X_train_original = X_train
 y_train_original = y_train
@@ -593,7 +436,6 @@ xgb.plot_importance(xgr_optimized_4,
                 max_num_features=64)
 plt.show()
 
-# # 转换为二分类标签
 display( pd.Series(y_pred_optimized_4).value_counts() )
 y_pred_2 = pd.Series(y_pred_optimized_4).apply(lambda x : 1 if x ==8 else 0).copy()
 pd.Series(y_pred_2).value_counts()
@@ -717,7 +559,6 @@ else:
     print("无法进行阈值调整，模型不支持预测概率")
 
 
-# 导入必要的库
 # 创建RandomForestClassifier模型
 print("========== 开始执行 RandomForest 模型 ==========")
 print("训练RandomForest模型...")
@@ -1010,9 +851,6 @@ if hasattr(rf_model, 'feature_importances_'):
     _pi_rf_ap_df = pd.DataFrame({'feature': list(X_test_sample_rf.columns), 'ap_importance': _pi_rf_ap.importances_mean}).sort_values(by='ap_importance', ascending=False)
     print(_pi_rf_ap_df.head(10))
 
-
-
-# 模型性能对比
 iv_df = calculate_all_features_iv(X_train, y_train)
 iv_selected = iv_df[iv_df['IV']>=0.02]['Feature'].tolist()
 X_train_iv = X_train_resampled[iv_selected]
